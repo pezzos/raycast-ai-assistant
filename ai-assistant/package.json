@@ -1,0 +1,105 @@
+{
+  "$schema": "https://www.raycast.com/schemas/extension.json",
+  "name": "ai-assistant",
+  "title": "AI Assistant",
+  "description": "AI-powered tools for translation, dictation, and more",
+  "icon": "extension-icon.png",
+  "author": "pezzos",
+  "categories": [
+    "Productivity"
+  ],
+  "license": "MIT",
+  "commands": [
+    {
+      "name": "translate",
+      "title": "Translate Selected Text",
+      "description": "Smart translation between your primary languages (auto-detects source language)",
+      "mode": "no-view",
+      "icon": "🌐"
+    },
+    {
+      "name": "test",
+      "title": "Test Clipboard",
+      "description": "Test clipboard and selected text functionality",
+      "mode": "view",
+      "icon": "🧪"
+    },
+    {
+      "name": "dictate",
+      "title": "Dictate Text",
+      "description": "Convert speech to text with optional translation",
+      "mode": "no-view",
+      "icon": "🎙️"
+    },
+    {
+      "name": "dictate-settings",
+      "title": "Configure Dictation",
+      "description": "Set default language for dictation",
+      "mode": "view",
+      "icon": "⚙️"
+    }
+  ],
+  "preferences": [
+    {
+      "name": "openaiApiKey",
+      "type": "password",
+      "required": true,
+      "title": "OpenAI API Key",
+      "description": "Your OpenAI API key (starts with 'sk-')",
+      "placeholder": "sk-..."
+    },
+    {
+      "name": "primaryLang",
+      "type": "dropdown",
+      "required": true,
+      "title": "Primary Language",
+      "description": "Your primary language (fallback for unknown languages)",
+      "default": "fr",
+      "data": [
+        { "title": "French", "value": "fr" },
+        { "title": "English", "value": "en" }
+      ]
+    },
+    {
+      "name": "secondaryLang",
+      "type": "dropdown",
+      "required": true,
+      "title": "Secondary Language",
+      "description": "Your secondary language (alternates with primary)",
+      "default": "en",
+      "data": [
+        { "title": "English", "value": "en" },
+        { "title": "French", "value": "fr" }
+      ]
+    },
+    {
+      "name": "fixText",
+      "type": "checkbox",
+      "required": false,
+      "title": "Improve Text",
+      "label": "Fix grammar and spelling issues during translation",
+      "description": "Fix grammar and spelling issues during translation",
+      "default": true
+    }
+  ],
+  "dependencies": {
+    "@raycast/api": "^1.89.1",
+    "@raycast/utils": "^1.17.0",
+    "openai": "^4.28.0"
+  },
+  "devDependencies": {
+    "@raycast/eslint-config": "^1.0.11",
+    "@types/node": "20.8.10",
+    "@types/react": "18.3.3",
+    "eslint": "^8.57.0",
+    "prettier": "^3.3.3",
+    "typescript": "^5.4.5"
+  },
+  "scripts": {
+    "build": "ray build",
+    "dev": "ray develop",
+    "fix-lint": "ray lint --fix",
+    "lint": "ray lint",
+    "publish": "npx @raycast/api@latest publish"
+  }
+}

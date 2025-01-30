@@ -1,0 +1,4 @@
+.DS_Store
+.cursorrules
+ai-assistant/src/node_modules/
+*.wav
