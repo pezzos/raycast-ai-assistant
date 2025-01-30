@@ -68,7 +68,7 @@ Rules:
 - If the source language is not ${preferences.primaryLang} or ${preferences.secondaryLang}, translate to ${preferences.primaryLang}
 - Keep formatting and punctuation
 - Preserve special characters and technical terms
-- Match the original tone${preferences.fixText ? '\n- Fix any grammar and spelling issues' : ''}
+- Match the original tone${preferences.fixText ? '\n- Fix any grammar, punctuation and spelling issues' : ''}
 
 Respond ONLY with the translation, no explanations or language detection info.`;
 

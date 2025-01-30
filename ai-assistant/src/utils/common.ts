@@ -40,3 +40,28 @@ export async function replaceSelectedText(text: string): Promise<void> {
   await showHUD("Text replaced");
 }
 
+/**
+ * Clean and improve text using OpenAI
+ * @param text The text to clean
+ * @param openai OpenAI instance
+ * @returns Promise<string> The cleaned text
+ */
+export async function cleanText(text: string, openai: any): Promise<string> {
+  const completion = await openai.chat.completions.create({
+    model: "gpt-4",
+    messages: [
+      {
+        role: "system",
+        content: "You are a text improvement assistant. Fix grammar, punctuation, and spelling while preserving the original meaning and tone. Respond ONLY with the corrected text.",
+      },
+      {
+        role: "user",
+        content: text,
+      },
+    ],
+    temperature: 0.3,
+  });
+
+  return completion.choices[0].message.content?.trim() || text;
+}
+
