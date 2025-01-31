@@ -32,11 +32,25 @@
       "icon": "🎙️"
     },
     {
+      "name": "dictate-prompt",
+      "title": "Dictate AI Prompt",
+      "description": "Use voice commands to generate or modify text with AI",
+      "mode": "no-view",
+      "icon": "🤖"
+    },
+    {
       "name": "dictate-settings",
       "title": "Configure Dictation",
       "description": "Set default language for dictation",
       "mode": "view",
       "icon": "⚙️"
+    },
+    {
+      "name": "summarize-page",
+      "title": "Summarize Current Page",
+      "description": "Get a quick AI summary of the current browser page",
+      "mode": "view",
+      "icon": "📝"
     }
   ],
   "preferences": [
@@ -56,8 +70,14 @@
       "description": "Your primary language (fallback for unknown languages)",
       "default": "fr",
       "data": [
-        { "title": "French", "value": "fr" },
-        { "title": "English", "value": "en" }
+        {
+          "title": "French",
+          "value": "fr"
+        },
+        {
+          "title": "English",
+          "value": "en"
+        }
       ]
     },
     {
@@ -68,8 +88,14 @@
       "description": "Your secondary language (alternates with primary)",
       "default": "en",
       "data": [
-        { "title": "English", "value": "en" },
-        { "title": "French", "value": "fr" }
+        {
+          "title": "English",
+          "value": "en"
+        },
+        {
+          "title": "French",
+          "value": "fr"
+        }
       ]
     },
     {
@@ -80,15 +106,40 @@
       "label": "Fix grammar and spelling issues during translation",
       "description": "Fix grammar and spelling issues during translation",
       "default": true
+    },
+    {
+      "name": "llmModel",
+      "type": "dropdown",
+      "required": false,
+      "title": "LLM Model",
+      "description": "The OpenAI model to use for AI operations",
+      "default": "gpt-4o-mini",
+      "data": [
+        {
+          "title": "GPT-4o Mini",
+          "value": "gpt-4o-mini"
+        },
+        {
+          "title": "GPT-4",
+          "value": "gpt-4"
+        },
+        {
+          "title": "GPT-3.5 Turbo",
+          "value": "gpt-3.5-turbo"
+        }
+      ]
     }
   ],
   "dependencies": {
     "@raycast/api": "^1.89.1",
     "@raycast/utils": "^1.17.0",
+    "cheerio": "^1.0.0",
+    "node-fetch": "^2.7.0",
     "openai": "^4.28.0"
   },
   "devDependencies": {
     "@raycast/eslint-config": "^1.0.11",
+    "@types/jsdom": "^21.1.7",
     "@types/node": "20.8.10",
     "@types/react": "18.3.3",
     "eslint": "^8.57.0",

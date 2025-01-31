@@ -1,9 +1,9 @@
 import { showHUD, getPreferenceValues } from "@raycast/api";
 import OpenAI from "openai";
-import { getSelectedText, replaceSelectedText } from "./utils/common";
+import { getSelectedText, replaceSelectedText, getLLMModel } from "./utils/common";
 
 // Debug logging function
-function log(message: string, data?: any) {
+function log(message: string, data?: unknown) {
   console.log(`[Translate] ${message}`, data ? JSON.stringify(data, null, 2) : '');
 }
 
@@ -75,7 +75,7 @@ Respond ONLY with the translation, no explanations or language detection info.`;
     // Call OpenAI API for translation
     log("Calling OpenAI API for translation");
     const completion = await openai.chat.completions.create({
-      model: "gpt-4",
+      model: getLLMModel(),
       messages: [
         {
           role: "system",

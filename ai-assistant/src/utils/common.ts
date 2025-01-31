@@ -1,4 +1,5 @@
-import { Clipboard, showHUD, getSelectedText as raycastGetSelectedText, environment } from "@raycast/api";
+import { Clipboard, showHUD, getSelectedText as raycastGetSelectedText, getPreferenceValues } from "@raycast/api";
+import OpenAI from "openai";
 
 /**
  * Get the current clipboard content
@@ -41,14 +42,23 @@ export async function replaceSelectedText(text: string): Promise<void> {
 }
 
 /**
+ * Get the LLM model from preferences
+ * @returns string The model name to use
+ */
+export function getLLMModel(): string {
+  const preferences = getPreferenceValues();
+  return preferences.llmModel || "gpt-4o-mini";
+}
+
+/**
  * Clean and improve text using OpenAI
  * @param text The text to clean
  * @param openai OpenAI instance
  * @returns Promise<string> The cleaned text
  */
-export async function cleanText(text: string, openai: any): Promise<string> {
+export async function cleanText(text: string, openai: OpenAI): Promise<string> {
   const completion = await openai.chat.completions.create({
-    model: "gpt-4",
+    model: getLLMModel(),
     messages: [
       {
         role: "system",

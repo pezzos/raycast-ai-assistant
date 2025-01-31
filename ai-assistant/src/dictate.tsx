@@ -5,6 +5,7 @@ import path from "path";
 import { exec } from "child_process";
 import { promisify } from "util";
 import { DICTATE_TARGET_LANG_KEY } from "./dictate-settings";
+import { cleanText, getLLMModel } from "./utils/common";
 
 const execAsync = promisify(exec);
 const SOX_PATH = "/opt/homebrew/bin/sox";
@@ -12,6 +13,30 @@ const SOX_PATH = "/opt/homebrew/bin/sox";
 interface Preferences {
   openaiApiKey: string;
   primaryLang: string;
+  fixText: boolean;
+}
+
+/**
+ * Clean up old recording files (older than 1 hour)
+ * @param tempDir Directory containing the recordings
+ */
+async function cleanupOldRecordings(tempDir: string) {
+  const oneHourAgo = Date.now() - (60 * 60 * 1000);
+
+  try {
+    const files = fs.readdirSync(tempDir);
+    for (const file of files) {
+      const filePath = path.join(tempDir, file);
+      const stats = fs.statSync(filePath);
+
+      if (stats.mtimeMs < oneHourAgo && file.startsWith('recording-') && file.endsWith('.wav')) {
+        fs.unlinkSync(filePath);
+        console.log(`Cleaned up old recording: ${file}`);
+      }
+    }
+  } catch (error) {
+    console.error("Error cleaning up old recordings:", error);
+  }
 }
 
 export default async function Command() {
@@ -38,6 +63,10 @@ export default async function Command() {
     if (!fs.existsSync(tempDir)) {
       fs.mkdirSync(tempDir, { recursive: true });
     }
+
+    // Clean up old recordings
+    await cleanupOldRecordings(tempDir);
+
     const outputPath = path.join(tempDir, `recording-${Date.now()}.wav`);
     console.log("Recording will be saved to:", outputPath);
 
@@ -60,10 +89,15 @@ export default async function Command() {
     const transcription = await openai.audio.transcriptions.create({
       file: fs.createReadStream(outputPath),
       model: "whisper-1",
-      response_format: "text",
       language: targetLanguage === "auto" ? undefined : targetLanguage,
     });
-    console.log("Transcription received:", transcription);
+
+    // Clean up the transcription if needed
+    let finalText = transcription.text;
+    if (preferences.fixText) {
+      await showHUD("✍️ Improving text...");
+      finalText = await cleanText(finalText, openai);
+    }
 
     // Nettoyer le fichier temporaire
     fs.unlinkSync(outputPath);
@@ -75,7 +109,7 @@ export default async function Command() {
       console.log("Translating to:", targetLanguage);
 
       const completion = await openai.chat.completions.create({
-        model: "gpt-4",
+        model: getLLMModel(),
         messages: [
           {
             role: "system",
@@ -83,7 +117,7 @@ export default async function Command() {
           },
           {
             role: "user",
-            content: transcription,
+            content: finalText,
           },
         ],
         temperature: 0.3,
@@ -96,9 +130,9 @@ export default async function Command() {
         console.log("Translation pasted:", translatedText);
       }
     } else {
-      await Clipboard.paste(transcription);
+      await Clipboard.paste(finalText);
       await showHUD("✅ Transcription completed and pasted!");
-      console.log("Transcription pasted:", transcription);
+      console.log("Transcription pasted:", finalText);
     }
   } catch (error) {
     console.error("Error:", error);
