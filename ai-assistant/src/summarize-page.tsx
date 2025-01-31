@@ -4,11 +4,12 @@ import { execSync } from "child_process";
 import fetch from "node-fetch";
 import * as cheerio from "cheerio";
 import { useState, useEffect } from "react";
-import { getLLMModel } from "./utils/common";
+import { getLLMModel, getSelectedText } from "./utils/common";
 
 interface Preferences {
   openaiApiKey: string;
   primaryLang: string;
+  showExploreMore: boolean;
 }
 
 interface PageSummary {
@@ -244,22 +245,49 @@ async function getPageContent(url: string): Promise<string | null> {
   }
 }
 
+// Function to get content either from selection or webpage
+async function getContent(): Promise<{ content: string; source: string }> {
+  try {
+    // First try to get selected text
+    const selectedText = await getSelectedText();
+    if (selectedText && selectedText.trim()) {
+      return {
+        content: selectedText.trim(),
+        source: "selection"
+      };
+    }
+  } catch (error) {
+    console.log("No text selected, trying webpage...");
+  }
+
+  // If no selected text, try to get webpage content
+  const url = await getCurrentURL();
+  if (!url) {
+    throw new Error("No active browser tab found and no text selected");
+  }
+
+  const pageContent = await getPageContent(url);
+  if (!pageContent) {
+    throw new Error("Could not fetch page content");
+  }
+
+  return {
+    content: pageContent,
+    source: url
+  };
+}
+
 // Function to summarize content using OpenAI
-async function summarizeContent(content: string, openai: OpenAI, language: string): Promise<string> {
-  const completion = await openai.chat.completions.create({
-    model: getLLMModel(),
-    messages: [
-      {
-        role: "system",
-        content: `You are a webpage summarization assistant. Provide the requested information in ${language} in the exact format specified, without any additional text or explanations.`
-      },
-      {
-        role: "user",
-        content: `Please analyze this webpage content and provide in ${language}:
+async function summarizeContent(content: string, openai: OpenAI, language: string, isSelectedText: boolean, showExploreMore: boolean): Promise<string> {
+  const systemPrompt = isSelectedText
+    ? `You are a text summarization assistant. Provide the requested information in ${language} in the exact format specified, without any additional text or explanations.`
+    : `You are a webpage summarization assistant. Provide the requested information in ${language} in the exact format specified, without any additional text or explanations.`;
+
+  const userPrompt = `Please analyze this ${isSelectedText ? 'text' : 'webpage content'} and provide in ${language}:
 1. A concise summary in 2-3 sentences maximum
 2. The main topic or category (one word or short phrase)
 3. Key highlights (2-3 bullet points maximum), use emojis to make it more interesting
-4. Suggest 2-3 related resources or topics to explore further. For each suggestion, include a URL if relevant.
+${showExploreMore ? `4. Suggest 2-3 related resources or topics to explore further. ${!isSelectedText ? 'For each suggestion, include a URL if relevant.' : ''}` : ''}
 
 Format the response EXACTLY like this (keep the empty lines between sections):
 TOPIC: <topic>
@@ -270,13 +298,24 @@ HIGHLIGHTS:
 • <first highlight>
 • <second highlight>
 • <third highlight if relevant>
-
+${showExploreMore ? `
 EXPLORE MORE:
-• <first suggestion with brief explanation> <url if available>
-• <second suggestion with brief explanation> <url if available>
-• <optional third suggestion> <url if available>
+• <first suggestion with brief explanation> ${!isSelectedText ? '<url if available>' : ''}
+• <second suggestion with brief explanation> ${!isSelectedText ? '<url if available>' : ''}
+• <optional third suggestion> ${!isSelectedText ? '<url if available>' : ''}` : ''}
 
-Content: "${content}"`
+Content: "${content}"`;
+
+  const completion = await openai.chat.completions.create({
+    model: getLLMModel(),
+    messages: [
+      {
+        role: "system",
+        content: systemPrompt
+      },
+      {
+        role: "user",
+        content: userPrompt
       }
     ],
     temperature: 0.7,
@@ -340,27 +379,17 @@ export default function Command() {
           apiKey: preferences.openaiApiKey
         });
 
-        // Get current URL
+        // Get content (either selected text or webpage)
         if (!isMounted) return;
-        await showToast({ style: Toast.Style.Animated, title: "Getting current page URL..." });
-        const url = await getCurrentURL();
-        if (!url || !isMounted) {
-          throw new Error("No active browser tab found");
-        }
-
-        // Get page content
-        if (!isMounted) return;
-        await showToast({ style: Toast.Style.Animated, title: "Extracting page content..." });
-        const content = await getPageContent(url);
-        if (!content || !isMounted) {
-          throw new Error("Could not fetch page content");
-        }
+        await showToast({ style: Toast.Style.Animated, title: "Getting content..." });
+        const { content, source } = await getContent();
 
         // Generate summary
         if (!isMounted) return;
         await showToast({ style: Toast.Style.Animated, title: "Generating summary..." });
-        const summaryText = await summarizeContent(content, openai, preferences.primaryLang);
-        const parsedSummary = parseOpenAIResponse(summaryText, url);
+        const isSelectedText = source === "selection";
+        const summaryText = await summarizeContent(content, openai, preferences.primaryLang, isSelectedText, preferences.showExploreMore);
+        const parsedSummary = parseOpenAIResponse(summaryText, source);
 
         if (isMounted) {
           setSummary(parsedSummary);
@@ -384,7 +413,7 @@ export default function Command() {
     return () => {
       isMounted = false;
     };
-  }, []); // Remove preferences from dependencies
+  }, []);
 
   // Prepare markdown content with proper formatting and translated titles
   const markdown = summary
@@ -397,9 +426,9 @@ ${summary.summary}
 
 ${summary.highlights.join('\n\n')}
 
-## ${sectionTitles[preferences.primaryLang]?.exploreMore || 'Explore More'}
+${preferences.showExploreMore ? `## ${sectionTitles[preferences.primaryLang]?.exploreMore || 'Explore More'}
 
-${summary.resources.join('\n\n')}
+${summary.resources.join('\n\n')}` : ''}
 
 ---
 ${sectionTitles[preferences.primaryLang]?.source || 'Source'}: ${summary.url}`

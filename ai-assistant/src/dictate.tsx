@@ -4,8 +4,9 @@ import fs from "fs";
 import path from "path";
 import { exec } from "child_process";
 import { promisify } from "util";
-import { DICTATE_TARGET_LANG_KEY } from "./dictate-settings";
+import { DICTATE_TARGET_LANG_KEY, WHISPER_MODE_KEY, WHISPER_MODEL_KEY } from "./settings";
 import { cleanText, getLLMModel } from "./utils/common";
+import { isWhisperInstalled, isModelDownloaded, transcribeAudio } from "./utils/whisper-local";
 
 const execAsync = promisify(exec);
 const SOX_PATH = "/opt/homebrew/bin/sox";
@@ -52,7 +53,25 @@ export default async function Command() {
   try {
     const preferences = getPreferenceValues<Preferences>();
     const targetLanguage = await LocalStorage.getItem<string>(DICTATE_TARGET_LANG_KEY) || "auto";
+    const whisperMode = await LocalStorage.getItem<string>(WHISPER_MODE_KEY) || "online";
+    const whisperModel = await LocalStorage.getItem<string>(WHISPER_MODEL_KEY) || "base";
     console.log("Target language:", targetLanguage);
+    console.log("Whisper mode:", whisperMode);
+    console.log("Whisper model:", whisperModel);
+
+    // Vérifier si Whisper local est disponible si nécessaire
+    if (whisperMode === "local") {
+      const isWhisperReady = await isWhisperInstalled();
+      if (!isWhisperReady) {
+        await showHUD("❌ Whisper is not installed - Please install it from the Whisper Models menu");
+        return;
+      }
+
+      if (!isModelDownloaded(whisperModel)) {
+        await showHUD(`❌ Model ${whisperModel} is not downloaded - Please download it from the Whisper Models menu`);
+        return;
+      }
+    }
 
     const openai = new OpenAI({
       apiKey: preferences.openaiApiKey,
@@ -86,11 +105,17 @@ export default async function Command() {
     await showHUD("🔄 Converting speech to text...");
     console.log("Processing audio file:", outputPath);
 
-    const transcription = await openai.audio.transcriptions.create({
-      file: fs.createReadStream(outputPath),
-      model: "whisper-1",
-      language: targetLanguage === "auto" ? undefined : targetLanguage,
-    });
+    let transcription;
+    if (whisperMode === "local") {
+      const text = await transcribeAudio(outputPath, whisperModel, targetLanguage === "auto" ? undefined : targetLanguage);
+      transcription = { text };
+    } else {
+      transcription = await openai.audio.transcriptions.create({
+        file: fs.createReadStream(outputPath),
+        model: "whisper-1",
+        language: targetLanguage === "auto" ? undefined : targetLanguage,
+      });
+    }
 
     // Clean up the transcription if needed
     let finalText = transcription.text;
