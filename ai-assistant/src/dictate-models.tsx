@@ -1,12 +1,12 @@
-import { Action, ActionPanel, List, showHUD } from "@raycast/api";
+import { Action, ActionPanel, List, showHUD, Icon } from "@raycast/api";
 import { useEffect, useState } from "react";
 import {
-  isWhisperInstalled,
-  installWhisper,
   downloadModel,
-  isModelDownloaded,
   getDownloadedModels,
   getAvailableModels,
+  cleanupWhisper,
+  isWhisperBinaryWorking,
+  installWhisper,
 } from "./utils/whisper-local";
 
 interface ModelItem {
@@ -35,7 +35,7 @@ export default function Command() {
   async function loadModels() {
     setIsLoading(true);
     try {
-      const whisperInstalled = await isWhisperInstalled();
+      const whisperInstalled = await isWhisperBinaryWorking();
       setIsWhisperReady(whisperInstalled);
 
       const downloadedModels = getDownloadedModels();
@@ -76,6 +76,16 @@ export default function Command() {
     }
   }
 
+  async function handleCleanup() {
+    try {
+      await cleanupWhisper();
+      await loadModels();
+    } catch (error) {
+      console.error("Error cleaning up Whisper:", error);
+      await showHUD("❌ Failed to clean up Whisper files");
+    }
+  }
+
   if (!isWhisperReady) {
     return (
       <List isLoading={isLoading}>
@@ -87,6 +97,14 @@ export default function Command() {
               <Action
                 title="Install Whisper"
                 onAction={handleInstallWhisper}
+                icon={Icon.Download}
+              />
+              <Action
+                title="Clean Up Whisper Files"
+                onAction={handleCleanup}
+                icon={Icon.Trash}
+                style={Action.Style.Destructive}
+                shortcut={{ modifiers: ["opt", "cmd"], key: "backspace" }}
               />
             </ActionPanel>
           }
@@ -106,17 +124,29 @@ export default function Command() {
             accessories={[
               {
                 text: model.isDownloaded ? "Downloaded" : "Not Downloaded",
-                icon: model.isDownloaded ? "checkmark" : "download",
+                icon: model.isDownloaded ? Icon.Checkmark : Icon.Download,
               },
             ]}
             actions={
               <ActionPanel>
-                {!model.isDownloaded && (
+                <ActionPanel.Section>
+                  {!model.isDownloaded && (
+                    <Action
+                      title={`Download ${model.name} Model`}
+                      onAction={() => handleDownloadModel(model.id)}
+                      icon={Icon.Download}
+                    />
+                  )}
+                </ActionPanel.Section>
+                <ActionPanel.Section>
                   <Action
-                    title={`Download ${model.name} Model`}
-                    onAction={() => handleDownloadModel(model.id)}
+                    title="Clean Up Whisper Files"
+                    onAction={handleCleanup}
+                    icon={Icon.Trash}
+                    style={Action.Style.Destructive}
+                    shortcut={{ modifiers: ["opt", "cmd"], key: "backspace" }}
                   />
-                )}
+                </ActionPanel.Section>
               </ActionPanel>
             }
           />

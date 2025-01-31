@@ -4,7 +4,7 @@ import fs from "fs";
 import path from "path";
 import { exec } from "child_process";
 import { promisify } from "util";
-import { DICTATE_TARGET_LANG_KEY, WHISPER_MODE_KEY, WHISPER_MODEL_KEY } from "./settings";
+import { DICTATE_TARGET_LANG_KEY, WHISPER_MODE_KEY, WHISPER_MODEL_KEY, EXPERIMENTAL_SINGLE_CALL_KEY } from "./settings";
 import { cleanText, getLLMModel } from "./utils/common";
 import { isWhisperInstalled, isModelDownloaded, transcribeAudio } from "./utils/whisper-local";
 
@@ -55,9 +55,11 @@ export default async function Command() {
     const targetLanguage = await LocalStorage.getItem<string>(DICTATE_TARGET_LANG_KEY) || "auto";
     const whisperMode = await LocalStorage.getItem<string>(WHISPER_MODE_KEY) || "online";
     const whisperModel = await LocalStorage.getItem<string>(WHISPER_MODEL_KEY) || "base";
+    const experimentalSingleCall = await LocalStorage.getItem<string>(EXPERIMENTAL_SINGLE_CALL_KEY) === "true";
     console.log("Target language:", targetLanguage);
     console.log("Whisper mode:", whisperMode);
     console.log("Whisper model:", whisperModel);
+    console.log("Experimental single call mode:", experimentalSingleCall);
 
     // Vérifier si Whisper local est disponible si nécessaire
     if (whisperMode === "local") {
@@ -107,19 +109,49 @@ export default async function Command() {
 
     let transcription;
     if (whisperMode === "local") {
+      console.log("Transcribe using: Local Whisper");
       const text = await transcribeAudio(outputPath, whisperModel, targetLanguage === "auto" ? undefined : targetLanguage);
       transcription = { text };
     } else {
-      transcription = await openai.audio.transcriptions.create({
-        file: fs.createReadStream(outputPath),
-        model: "whisper-1",
-        language: targetLanguage === "auto" ? undefined : targetLanguage,
-      });
+      if (experimentalSingleCall) {
+        console.log("Transcribe using: OpenAI GPT-4o-audio-preview");
+        // Lire le fichier audio en base64
+        const audioBuffer = fs.readFileSync(outputPath);
+        const base64Audio = audioBuffer.toString("base64");
+
+        const completion = await openai.chat.completions.create({
+          model: "gpt-4o-audio-preview",
+          modalities: ["text"],
+          messages: [
+            {
+              role: "user",
+              content: [
+                { type: "text", text: `Transcribe this audio${targetLanguage === "auto" ? " in the same language as the audio input" : ` in ${targetLanguage}`}. ${preferences.fixText ? "Fix any grammar or spelling issues while keeping the same language." : ""}` },
+                { type: "input_audio", input_audio: { data: base64Audio, format: "wav" }}
+              ]
+            }
+          ],
+        });
+
+        const result = completion.choices[0]?.message?.content;
+        if (typeof result === "string") {
+          transcription = { text: result };
+        } else {
+          throw new Error("Unexpected response format from GPT-4o-audio-preview");
+        }
+      } else {
+        console.log("Transcribe using: OpenAI Whisper");
+        transcription = await openai.audio.transcriptions.create({
+          file: fs.createReadStream(outputPath),
+          model: "whisper-1",
+          language: targetLanguage === "auto" ? undefined : targetLanguage,
+        });
+      }
     }
 
     // Clean up the transcription if needed
     let finalText = transcription.text;
-    if (preferences.fixText) {
+    if (preferences.fixText && !experimentalSingleCall) {
       await showHUD("✍️ Improving text...");
       finalText = await cleanText(finalText, openai);
     }
@@ -129,7 +161,7 @@ export default async function Command() {
     console.log("Temporary file cleaned up");
 
     // Traduire si nécessaire
-    if (targetLanguage !== "auto") {
+    if (targetLanguage !== "auto" && !experimentalSingleCall) {
       await showHUD(`🌐 Translating to ${targetLanguage}...`);
       console.log("Translating to:", targetLanguage);
 

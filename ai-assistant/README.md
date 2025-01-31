@@ -95,6 +95,8 @@ Feel free to submit issues and enhancement requests!
 
 ## TODO
 - [ ] Add support for more AI models (Claude, Gemini, etc.)
+- [ ] Allow the use of a single gpt-4o-mini-audio-preview call instead of one whisper + one gpt-4o-mini call.
+- [ ] Add support for more languages
 - [ ] Add custom prompt templates
 - [ ] Improve error handling and recovery
 - [ ] Add unit tests and integration tests
