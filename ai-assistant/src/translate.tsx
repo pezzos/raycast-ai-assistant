@@ -4,7 +4,7 @@ import { getSelectedText, replaceSelectedText, getLLMModel } from "./utils/commo
 
 // Debug logging function
 function log(message: string, data?: unknown) {
-  console.log(`[Translate] ${message}`, data ? JSON.stringify(data, null, 2) : '');
+  console.log(`[Translate] ${message}`, data ? JSON.stringify(data, null, 2) : "");
 }
 
 interface Preferences {
@@ -68,7 +68,7 @@ Rules:
 - If the source language is not ${preferences.primaryLang} or ${preferences.secondaryLang}, translate to ${preferences.primaryLang}
 - Keep formatting and punctuation
 - Preserve special characters and technical terms
-- Match the original tone${preferences.fixText ? '\n- Fix any grammar, punctuation and spelling issues' : ''}
+- Match the original tone${preferences.fixText ? "\n- Fix any grammar, punctuation and spelling issues" : ""}
 
 Respond ONLY with the translation, no explanations or language detection info.`;
 
@@ -79,7 +79,8 @@ Respond ONLY with the translation, no explanations or language detection info.`;
       messages: [
         {
           role: "system",
-          content: "You are a translation assistant. Respond ONLY with the translated text, without any additional text, quotes, or explanations.",
+          content:
+            "You are a translation assistant. Respond ONLY with the translated text, without any additional text, quotes, or explanations.",
         },
         {
           role: "user",
@@ -106,7 +107,6 @@ Respond ONLY with the translation, no explanations or language detection info.`;
 
     // Show success
     await showHUD("✅ Translation completed");
-
   } catch (error) {
     log("Error during translation", error);
     await showHUD("❌ Error: " + (error instanceof Error ? error.message : "Unknown error occurred"));

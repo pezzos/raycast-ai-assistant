@@ -22,7 +22,7 @@ interface Preferences {
  * @param tempDir Directory containing the recordings
  */
 async function cleanupOldRecordings(tempDir: string) {
-  const oneHourAgo = Date.now() - (60 * 60 * 1000);
+  const oneHourAgo = Date.now() - 60 * 60 * 1000;
 
   try {
     const files = fs.readdirSync(tempDir);
@@ -30,7 +30,7 @@ async function cleanupOldRecordings(tempDir: string) {
       const filePath = path.join(tempDir, file);
       const stats = fs.statSync(filePath);
 
-      if (stats.mtimeMs < oneHourAgo && file.startsWith('recording-') && file.endsWith('.wav')) {
+      if (stats.mtimeMs < oneHourAgo && file.startsWith("recording-") && file.endsWith(".wav")) {
         fs.unlinkSync(filePath);
         console.log(`Cleaned up old recording: ${file}`);
       }
@@ -52,10 +52,10 @@ export default async function Command() {
 
   try {
     const preferences = getPreferenceValues<Preferences>();
-    const targetLanguage = await LocalStorage.getItem<string>(DICTATE_TARGET_LANG_KEY) || "auto";
-    const whisperMode = await LocalStorage.getItem<string>(WHISPER_MODE_KEY) || "online";
-    const whisperModel = await LocalStorage.getItem<string>(WHISPER_MODEL_KEY) || "base";
-    const experimentalSingleCall = await LocalStorage.getItem<string>(EXPERIMENTAL_SINGLE_CALL_KEY) === "true";
+    const targetLanguage = (await LocalStorage.getItem<string>(DICTATE_TARGET_LANG_KEY)) || "auto";
+    const whisperMode = (await LocalStorage.getItem<string>(WHISPER_MODE_KEY)) || "online";
+    const whisperModel = (await LocalStorage.getItem<string>(WHISPER_MODEL_KEY)) || "base";
+    const experimentalSingleCall = (await LocalStorage.getItem<string>(EXPERIMENTAL_SINGLE_CALL_KEY)) === "true";
     console.log("Target language:", targetLanguage);
     console.log("Whisper mode:", whisperMode);
     console.log("Whisper model:", whisperModel);
@@ -110,7 +110,11 @@ export default async function Command() {
     let transcription;
     if (whisperMode === "local") {
       console.log("Transcribe using: Local Whisper");
-      const text = await transcribeAudio(outputPath, whisperModel, targetLanguage === "auto" ? undefined : targetLanguage);
+      const text = await transcribeAudio(
+        outputPath,
+        whisperModel,
+        targetLanguage === "auto" ? undefined : targetLanguage,
+      );
       transcription = { text };
     } else {
       if (experimentalSingleCall) {
@@ -126,10 +130,13 @@ export default async function Command() {
             {
               role: "user",
               content: [
-                { type: "text", text: `Transcribe this audio${targetLanguage === "auto" ? " in the same language as the audio input" : ` in ${targetLanguage}`}. ${preferences.fixText ? "Fix any grammar or spelling issues while keeping the same language." : ""}` },
-                { type: "input_audio", input_audio: { data: base64Audio, format: "wav" }}
-              ]
-            }
+                {
+                  type: "text",
+                  text: `Transcribe this audio${targetLanguage === "auto" ? " in the same language as the audio input" : ` in ${targetLanguage}`}. ${preferences.fixText ? "Fix any grammar or spelling issues while keeping the same language." : ""}`,
+                },
+                { type: "input_audio", input_audio: { data: base64Audio, format: "wav" } },
+              ],
+            },
           ],
         });
 
@@ -203,4 +210,3 @@ export default async function Command() {
     }
   }
 }
-

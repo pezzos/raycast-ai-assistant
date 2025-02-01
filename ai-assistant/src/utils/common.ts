@@ -29,12 +29,12 @@ export async function getSelectedText(): Promise<string> {
  */
 export async function replaceSelectedText(text: string): Promise<void> {
   const cleanText = text
-    .replace(/^["']|["']$/g, '')  // Remove quotes at start/end
-    .replace(/\n*Translation:.*$/gs, '') // Remove "Translation:" suffix if present
+    .replace(/^["']|["']$/g, "") // Remove quotes at start/end
+    .replace(/\n*Translation:.*$/gs, "") // Remove "Translation:" suffix if present
     .trim();
 
   if (!cleanText) {
-    throw new Error('No text to paste');
+    throw new Error("No text to paste");
   }
 
   await Clipboard.paste(cleanText);
@@ -62,7 +62,8 @@ export async function cleanText(text: string, openai: OpenAI): Promise<string> {
     messages: [
       {
         role: "system",
-        content: "You are a text improvement assistant. Fix grammar, punctuation, and spelling while preserving the original meaning and tone. Respond ONLY with the corrected text.",
+        content:
+          "You are a text improvement assistant. Fix grammar, punctuation, and spelling while preserving the original meaning and tone. Respond ONLY with the corrected text.",
       },
       {
         role: "user",
@@ -74,4 +75,3 @@ export async function cleanText(text: string, openai: OpenAI): Promise<string> {
 
   return completion.choices[0].message.content?.trim() || text;
 }
-

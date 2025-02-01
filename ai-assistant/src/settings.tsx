@@ -71,7 +71,7 @@ export default function Command() {
       const savedExperimentalSingleCall = await LocalStorage.getItem<string>(EXPERIMENTAL_SINGLE_CALL_KEY);
 
       // Update download status for each model
-      WHISPER_MODEL_OPTIONS.forEach(model => {
+      WHISPER_MODEL_OPTIONS.forEach((model) => {
         model.isDownloaded = isModelDownloaded(model.value);
       });
 
@@ -128,12 +128,8 @@ export default function Command() {
         value={primaryLanguage}
         onChange={setPrimaryLanguage}
       >
-        {LANGUAGE_OPTIONS.filter(lang => lang.value !== "auto").map((lang) => (
-          <Form.Dropdown.Item
-            key={lang.value}
-            value={lang.value}
-            title={lang.title}
-          />
+        {LANGUAGE_OPTIONS.filter((lang) => lang.value !== "auto").map((lang) => (
+          <Form.Dropdown.Item key={lang.value} value={lang.value} title={lang.title} />
         ))}
       </Form.Dropdown>
 
@@ -144,12 +140,8 @@ export default function Command() {
         value={secondaryLanguage}
         onChange={setSecondaryLanguage}
       >
-        {LANGUAGE_OPTIONS.filter(lang => lang.value !== "auto").map((lang) => (
-          <Form.Dropdown.Item
-            key={lang.value}
-            value={lang.value}
-            title={lang.title}
-          />
+        {LANGUAGE_OPTIONS.filter((lang) => lang.value !== "auto").map((lang) => (
+          <Form.Dropdown.Item key={lang.value} value={lang.value} title={lang.title} />
         ))}
       </Form.Dropdown>
 
@@ -161,11 +153,7 @@ export default function Command() {
         onChange={setTargetLanguage}
       >
         {LANGUAGE_OPTIONS.map((lang) => (
-          <Form.Dropdown.Item
-            key={lang.value}
-            value={lang.value}
-            title={lang.title}
-          />
+          <Form.Dropdown.Item key={lang.value} value={lang.value} title={lang.title} />
         ))}
       </Form.Dropdown>
 
@@ -181,11 +169,7 @@ export default function Command() {
         onChange={setWhisperMode}
       >
         {WHISPER_MODE_OPTIONS.map((mode) => (
-          <Form.Dropdown.Item
-            key={mode.value}
-            value={mode.value}
-            title={mode.title}
-          />
+          <Form.Dropdown.Item key={mode.value} value={mode.value} title={mode.title} />
         ))}
       </Form.Dropdown>
 
@@ -233,11 +217,7 @@ export default function Command() {
         onChange={setLlmModel}
       >
         {MODEL_OPTIONS.map((model) => (
-          <Form.Dropdown.Item
-            key={model.value}
-            value={model.value}
-            title={model.title}
-          />
+          <Form.Dropdown.Item key={model.value} value={model.value} title={model.title} />
         ))}
       </Form.Dropdown>
 

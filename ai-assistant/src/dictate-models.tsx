@@ -41,7 +41,7 @@ export default function Command() {
       const downloadedModels = getDownloadedModels();
       const availableModels = getAvailableModels();
 
-      const modelItems: ModelItem[] = availableModels.map(modelId => ({
+      const modelItems: ModelItem[] = availableModels.map((modelId) => ({
         id: modelId,
         name: modelId.charAt(0).toUpperCase() + modelId.slice(1),
         description: MODEL_DESCRIPTIONS[modelId as keyof typeof MODEL_DESCRIPTIONS],
@@ -94,13 +94,9 @@ export default function Command() {
           description="Whisper needs to be installed locally to use offline speech recognition."
           actions={
             <ActionPanel>
+              <Action title="Install Whisper" onAction={handleInstallWhisper} icon={Icon.Download} />
               <Action
-                title="Install Whisper"
-                onAction={handleInstallWhisper}
-                icon={Icon.Download}
-              />
-              <Action
-                title="Clean Up Whisper Files"
+                title="Clean up Whisper Files"
                 onAction={handleCleanup}
                 icon={Icon.Trash}
                 style={Action.Style.Destructive}
@@ -140,7 +136,7 @@ export default function Command() {
                 </ActionPanel.Section>
                 <ActionPanel.Section>
                   <Action
-                    title="Clean Up Whisper Files"
+                    title="Clean up Whisper Files"
                     onAction={handleCleanup}
                     icon={Icon.Trash}
                     style={Action.Style.Destructive}

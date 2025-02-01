@@ -23,7 +23,7 @@ interface PageSummary {
 
 // Constants for content limits
 const MAX_CONTENT_LENGTH = 8000; // Reduced maximum characters for content
-const MAX_TITLE_LENGTH = 500;    // Maximum characters for title
+const MAX_TITLE_LENGTH = 500; // Maximum characters for title
 
 // Browser configuration for AppleScript commands
 const browsers = [
@@ -33,7 +33,7 @@ const browsers = [
       if (count of windows) > 0 then
         get URL of active tab of front window
       end if
-    end tell`
+    end tell`,
   },
   {
     name: "Google Chrome",
@@ -41,7 +41,7 @@ const browsers = [
       if (count of windows) > 0 then
         get URL of active tab of front window
       end if
-    end tell`
+    end tell`,
   },
   {
     name: "Safari",
@@ -49,7 +49,7 @@ const browsers = [
       if (count of windows) > 0 then
         get URL of current tab of front window
       end if
-    end tell`
+    end tell`,
   },
   {
     name: "Microsoft Edge",
@@ -57,7 +57,7 @@ const browsers = [
       if (count of windows) > 0 then
         get URL of active tab of front window
       end if
-    end tell`
+    end tell`,
   },
   {
     name: "Opera",
@@ -65,7 +65,7 @@ const browsers = [
       if (count of windows) > 0 then
         get URL of active tab of front window
       end if
-    end tell`
+    end tell`,
   },
   {
     name: "Brave Browser",
@@ -73,7 +73,7 @@ const browsers = [
       if (count of windows) > 0 then
         get URL of active tab of front window
       end if
-    end tell`
+    end tell`,
   },
   {
     name: "Firefox",
@@ -81,24 +81,24 @@ const browsers = [
       if (count of windows) > 0 then
         get URL of active tab of front window
       end if
-    end tell`
-  }
+    end tell`,
+  },
 ];
 
 // Section titles translations
 const sectionTitles: { [key: string]: { [key: string]: string } } = {
-  'fr': {
-    summary: 'Résumé',
-    keyHighlights: 'Points Clés',
-    exploreMore: 'Pour aller plus loin',
-    source: 'Source'
+  fr: {
+    summary: "Résumé",
+    keyHighlights: "Points Clés",
+    exploreMore: "Pour aller plus loin",
+    source: "Source",
   },
-  'en': {
-    summary: 'Summary',
-    keyHighlights: 'Key Highlights',
-    exploreMore: 'Explore More',
-    source: 'Source'
-  }
+  en: {
+    summary: "Summary",
+    keyHighlights: "Key Highlights",
+    exploreMore: "Explore More",
+    source: "Source",
+  },
 };
 
 // Function to get the default browser
@@ -108,18 +108,18 @@ function getDefaultBrowser(): string | null {
     const bundleId = execSync(command).toString().trim();
 
     const bundleIdToName: { [key: string]: string } = {
-      'company.thebrowser.Browser': 'Arc',
-      'com.google.Chrome': 'Google Chrome',
-      'com.apple.Safari': 'Safari',
-      'com.microsoft.edgemac': 'Microsoft Edge',
-      'com.operasoftware.Opera': 'Opera',
-      'com.brave.Browser': 'Brave Browser',
-      'org.mozilla.firefox': 'Firefox'
+      "company.thebrowser.Browser": "Arc",
+      "com.google.Chrome": "Google Chrome",
+      "com.apple.Safari": "Safari",
+      "com.microsoft.edgemac": "Microsoft Edge",
+      "com.operasoftware.Opera": "Opera",
+      "com.brave.Browser": "Brave Browser",
+      "org.mozilla.firefox": "Firefox",
     };
 
     return bundleIdToName[bundleId] || null;
   } catch (error) {
-    console.error('Could not detect default browser:', error);
+    console.error("Could not detect default browser:", error);
     return null;
   }
 }
@@ -131,7 +131,7 @@ async function getCurrentURL(): Promise<string | null> {
 
   // Reorder browsers array to try default browser first
   if (defaultBrowser) {
-    const defaultBrowserConfig = browsers.find(b => b.name === defaultBrowser);
+    const defaultBrowserConfig = browsers.find((b) => b.name === defaultBrowser);
     if (defaultBrowserConfig) {
       browsers.splice(browsers.indexOf(defaultBrowserConfig), 1);
       browsers.unshift(defaultBrowserConfig);
@@ -159,38 +159,30 @@ async function getCurrentURL(): Promise<string | null> {
 // Function to clean and truncate text
 function cleanAndTruncateText(text: string, maxLength: number): string {
   return text
-    .replace(/\s+/g, ' ')           // Replace multiple spaces with single space
-    .replace(/\n+/g, ' ')           // Replace newlines with spaces
-    .replace(/\t+/g, ' ')           // Replace tabs with spaces
+    .replace(/\s+/g, " ") // Replace multiple spaces with single space
+    .replace(/\n+/g, " ") // Replace newlines with spaces
+    .replace(/\t+/g, " ") // Replace tabs with spaces
     .trim()
-    .slice(0, maxLength);           // Truncate to max length
+    .slice(0, maxLength); // Truncate to max length
 }
 
 // Function to extract main content from HTML
 function extractMainContent($: cheerio.CheerioAPI): string {
   // Remove unwanted elements
-  $('script, style, nav, footer, header, aside, iframe, noscript').remove();
+  $("script, style, nav, footer, header, aside, iframe, noscript").remove();
 
   // Try to find the main content container
-  const selectors = [
-    'main',
-    'article',
-    '[role="main"]',
-    '#content',
-    '.content',
-    '.article',
-    '.post',
-    '.entry'
-  ];
+  const selectors = ["main", "article", '[role="main"]', "#content", ".content", ".article", ".post", ".entry"];
 
-  let content = '';
+  let content = "";
 
   // Try each selector until we find content
   for (const selector of selectors) {
     const element = $(selector);
     if (element.length > 0) {
       content = element.text();
-      if (content.length > 100) { // Only use if content is substantial
+      if (content.length > 100) {
+        // Only use if content is substantial
         break;
       }
     }
@@ -198,7 +190,7 @@ function extractMainContent($: cheerio.CheerioAPI): string {
 
   // Fallback to body if no main content found
   if (!content || content.length < 100) {
-    content = $('body').text();
+    content = $("body").text();
   }
 
   return cleanAndTruncateText(content, MAX_CONTENT_LENGTH);
@@ -209,12 +201,13 @@ async function getPageContent(url: string): Promise<string | null> {
   try {
     const response = await fetch(url, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.5',
-        'Cache-Control': 'no-cache',
-        'Pragma': 'no-cache'
-      }
+        "User-Agent":
+          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+        Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.5",
+        "Cache-Control": "no-cache",
+        Pragma: "no-cache",
+      },
     });
 
     if (!response.ok) {
@@ -225,7 +218,7 @@ async function getPageContent(url: string): Promise<string | null> {
     const $ = cheerio.load(html);
 
     // Get title
-    const title = cleanAndTruncateText($('title').text(), MAX_TITLE_LENGTH);
+    const title = cleanAndTruncateText($("title").text(), MAX_TITLE_LENGTH);
 
     // Get main content with better selectors
     const mainContent = extractMainContent($);
@@ -234,9 +227,9 @@ async function getPageContent(url: string): Promise<string | null> {
     $.root().empty();
 
     // Log for debugging
-    console.log('Extracted URL:', url);
-    console.log('Extracted Title:', title);
-    console.log('Content Length:', mainContent.length);
+    console.log("Extracted URL:", url);
+    console.log("Extracted Title:", title);
+    console.log("Content Length:", mainContent.length);
 
     return `Title: ${title}\n\nContent: ${mainContent}`;
   } catch (error) {
@@ -253,7 +246,7 @@ async function getContent(): Promise<{ content: string; source: string }> {
     if (selectedText && selectedText.trim()) {
       return {
         content: selectedText.trim(),
-        source: "selection"
+        source: "selection",
       };
     }
   } catch (error) {
@@ -273,21 +266,27 @@ async function getContent(): Promise<{ content: string; source: string }> {
 
   return {
     content: pageContent,
-    source: url
+    source: url,
   };
 }
 
 // Function to summarize content using OpenAI
-async function summarizeContent(content: string, openai: OpenAI, language: string, isSelectedText: boolean, showExploreMore: boolean): Promise<string> {
+async function summarizeContent(
+  content: string,
+  openai: OpenAI,
+  language: string,
+  isSelectedText: boolean,
+  showExploreMore: boolean,
+): Promise<string> {
   const systemPrompt = isSelectedText
     ? `You are a text summarization assistant. Provide the requested information in ${language} in the exact format specified, without any additional text or explanations.`
     : `You are a webpage summarization assistant. Provide the requested information in ${language} in the exact format specified, without any additional text or explanations.`;
 
-  const userPrompt = `Please analyze this ${isSelectedText ? 'text' : 'webpage content'} and provide in ${language}:
+  const userPrompt = `Please analyze this ${isSelectedText ? "text" : "webpage content"} and provide in ${language}:
 1. A concise summary in 2-3 sentences maximum
 2. The main topic or category (one word or short phrase)
 3. Key highlights (2-3 bullet points maximum), use emojis to make it more interesting
-${showExploreMore ? `4. Suggest 2-3 related resources or topics to explore further. ${!isSelectedText ? 'For each suggestion, include a URL if relevant.' : ''}` : ''}
+${showExploreMore ? `4. Suggest 2-3 related resources or topics to explore further. ${!isSelectedText ? "For each suggestion, include a URL if relevant." : ""}` : ""}
 
 Format the response EXACTLY like this (keep the empty lines between sections):
 TOPIC: <topic>
@@ -298,11 +297,15 @@ HIGHLIGHTS:
 • <first highlight>
 • <second highlight>
 • <third highlight if relevant>
-${showExploreMore ? `
+${
+  showExploreMore
+    ? `
 EXPLORE MORE:
-• <first suggestion with brief explanation> ${!isSelectedText ? '<url if available>' : ''}
-• <second suggestion with brief explanation> ${!isSelectedText ? '<url if available>' : ''}
-• <optional third suggestion> ${!isSelectedText ? '<url if available>' : ''}` : ''}
+• <first suggestion with brief explanation> ${!isSelectedText ? "<url if available>" : ""}
+• <second suggestion with brief explanation> ${!isSelectedText ? "<url if available>" : ""}
+• <optional third suggestion> ${!isSelectedText ? "<url if available>" : ""}`
+    : ""
+}
 
 Content: "${content}"`;
 
@@ -311,15 +314,15 @@ Content: "${content}"`;
     messages: [
       {
         role: "system",
-        content: systemPrompt
+        content: systemPrompt,
       },
       {
         role: "user",
-        content: userPrompt
-      }
+        content: userPrompt,
+      },
     ],
     temperature: 0.7,
-    max_tokens: 600
+    max_tokens: 600,
   });
 
   return completion.choices[0].message.content || "No summary generated";
@@ -327,35 +330,35 @@ Content: "${content}"`;
 
 // Function to parse the OpenAI response into a structured format
 function parseOpenAIResponse(response: string, url: string): PageSummary {
-  const lines = response.split('\n');
+  const lines = response.split("\n");
   const summary: PageSummary = {
-    title: '',
-    topic: '',
-    summary: '',
+    title: "",
+    topic: "",
+    summary: "",
     highlights: [],
     resources: [],
-    url: url
+    url: url,
   };
 
-  let currentSection = '';
+  let currentSection = "";
   for (const line of lines) {
     const trimmedLine = line.trim();
 
     // Skip empty lines
     if (!trimmedLine) continue;
 
-    if (trimmedLine.startsWith('TOPIC:')) {
-      summary.topic = trimmedLine.replace('TOPIC:', '').trim();
-    } else if (trimmedLine.startsWith('SUMMARY:')) {
-      summary.summary = trimmedLine.replace('SUMMARY:', '').trim();
-    } else if (trimmedLine === 'HIGHLIGHTS:') {
-      currentSection = 'highlights';
-    } else if (trimmedLine === 'EXPLORE MORE:') {
-      currentSection = 'resources';
-    } else if (trimmedLine.startsWith('•')) {
-      if (currentSection === 'highlights') {
+    if (trimmedLine.startsWith("TOPIC:")) {
+      summary.topic = trimmedLine.replace("TOPIC:", "").trim();
+    } else if (trimmedLine.startsWith("SUMMARY:")) {
+      summary.summary = trimmedLine.replace("SUMMARY:", "").trim();
+    } else if (trimmedLine === "HIGHLIGHTS:") {
+      currentSection = "highlights";
+    } else if (trimmedLine === "EXPLORE MORE:") {
+      currentSection = "resources";
+    } else if (trimmedLine.startsWith("•")) {
+      if (currentSection === "highlights") {
         summary.highlights.push(trimmedLine);
-      } else if (currentSection === 'resources') {
+      } else if (currentSection === "resources") {
         summary.resources.push(trimmedLine);
       }
     }
@@ -376,7 +379,7 @@ export default function Command() {
     async function fetchSummary() {
       try {
         const openai = new OpenAI({
-          apiKey: preferences.openaiApiKey
+          apiKey: preferences.openaiApiKey,
         });
 
         // Get content (either selected text or webpage)
@@ -388,7 +391,13 @@ export default function Command() {
         if (!isMounted) return;
         await showToast({ style: Toast.Style.Animated, title: "Generating summary..." });
         const isSelectedText = source === "selection";
-        const summaryText = await summarizeContent(content, openai, preferences.primaryLang, isSelectedText, preferences.showExploreMore);
+        const summaryText = await summarizeContent(
+          content,
+          openai,
+          preferences.primaryLang,
+          isSelectedText,
+          preferences.showExploreMore,
+        );
         const parsedSummary = parseOpenAIResponse(summaryText, source);
 
         if (isMounted) {
@@ -399,7 +408,11 @@ export default function Command() {
         if (isMounted) {
           console.error("Error:", e);
           setError(e instanceof Error ? e.message : "An error occurred");
-          await showToast({ style: Toast.Style.Failure, title: "Error", message: e instanceof Error ? e.message : "An error occurred" });
+          await showToast({
+            style: Toast.Style.Failure,
+            title: "Error",
+            message: e instanceof Error ? e.message : "An error occurred",
+          });
         }
       } finally {
         if (isMounted) {
@@ -419,20 +432,24 @@ export default function Command() {
   const markdown = summary
     ? `# ${summary.topic}
 
-## ${sectionTitles[preferences.primaryLang]?.summary || 'Summary'}
+## ${sectionTitles[preferences.primaryLang]?.summary || "Summary"}
 ${summary.summary}
 
-## ${sectionTitles[preferences.primaryLang]?.keyHighlights || 'Key Highlights'}
+## ${sectionTitles[preferences.primaryLang]?.keyHighlights || "Key Highlights"}
 
-${summary.highlights.join('\n\n')}
+${summary.highlights.join("\n\n")}
 
-${preferences.showExploreMore ? `## ${sectionTitles[preferences.primaryLang]?.exploreMore || 'Explore More'}
+${
+  preferences.showExploreMore
+    ? `## ${sectionTitles[preferences.primaryLang]?.exploreMore || "Explore More"}
 
-${summary.resources.join('\n\n')}` : ''}
+${summary.resources.join("\n\n")}`
+    : ""
+}
 
 ---
-${sectionTitles[preferences.primaryLang]?.source || 'Source'}: ${summary.url}`
-    : '';
+${sectionTitles[preferences.primaryLang]?.source || "Source"}: ${summary.url}`
+    : "";
 
   if (error) {
     return <Detail markdown={`# Error\n\n${error}`} />;
@@ -440,4 +457,3 @@ ${sectionTitles[preferences.primaryLang]?.source || 'Source'}: ${summary.url}`
 
   return <Detail isLoading={isLoading} markdown={markdown} />;
 }
-

@@ -9,18 +9,22 @@ export function getSystemLanguage(): string {
 // Get keyboard layout language using system commands
 export function getKeyboardLanguage(): string {
   try {
-    const layout = execSync("defaults read ~/Library/Preferences/com.apple.HIToolbox.plist AppleSelectedInputSources | grep -w 'KeyboardLayout Name' | cut -d'\"' -f4").toString().trim();
+    const layout = execSync(
+      "defaults read ~/Library/Preferences/com.apple.HIToolbox.plist AppleSelectedInputSources | grep -w 'KeyboardLayout Name' | cut -d'\"' -f4",
+    )
+      .toString()
+      .trim();
 
     // Map common keyboard layouts to language codes
     const layoutMap: { [key: string]: string } = {
-      "French": "fr",
+      French: "fr",
       "French - Numerical": "fr",
-      "ABC": "en",
-      "US": "en",
-      "British": "en",
-      "German": "de",
-      "Spanish": "es",
-      "Italian": "it",
+      ABC: "en",
+      US: "en",
+      British: "en",
+      German: "de",
+      Spanish: "es",
+      Italian: "it",
       // Add more mappings as needed
     };
 

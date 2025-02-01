@@ -20,7 +20,7 @@ interface Preferences {
  * @param tempDir Directory containing the recordings
  */
 async function cleanupOldRecordings(tempDir: string) {
-  const oneHourAgo = Date.now() - (60 * 60 * 1000);
+  const oneHourAgo = Date.now() - 60 * 60 * 1000;
 
   try {
     const files = fs.readdirSync(tempDir);
@@ -28,7 +28,7 @@ async function cleanupOldRecordings(tempDir: string) {
       const filePath = path.join(tempDir, file);
       const stats = fs.statSync(filePath);
 
-      if (stats.mtimeMs < oneHourAgo && file.startsWith('recording-') && file.endsWith('.wav')) {
+      if (stats.mtimeMs < oneHourAgo && file.startsWith("recording-") && file.endsWith(".wav")) {
         fs.unlinkSync(filePath);
         console.log(`Cleaned up old recording: ${file}`);
       }
@@ -59,7 +59,7 @@ async function executePrompt(prompt: string, selectedText: string | null, openai
   console.log("Sending to OpenAI:", {
     model: getLLMModel(),
     systemPrompt,
-    userPrompt
+    userPrompt,
   });
 
   const completion = await openai.chat.completions.create({
@@ -93,10 +93,13 @@ async function cleanPrompt(transcription: string): Promise<string | null> {
 
   // Remove common politeness formulas and meta-responses
   const cleanedText = transcription
-    .replace(/^(bien sûr|d'accord|je serais ravi|avec plaisir|je peux|je vais|pouvez-vous|pourriez-vous|s'il vous plaît|veuillez),?\s*/i, '')
-    .replace(/^(je serais ravi de vous aider|je peux vous aider|je vais vous aider).*$/i, '')
-    .replace(/veuillez (me )?(fournir|donner) le texte.*$/i, '')
-    .replace(/^(il faut|on va|on peut|je vais) /i, '')
+    .replace(
+      /^(bien sûr|d'accord|je serais ravi|avec plaisir|je peux|je vais|pouvez-vous|pourriez-vous|s'il vous plaît|veuillez),?\s*/i,
+      "",
+    )
+    .replace(/^(je serais ravi de vous aider|je peux vous aider|je vais vous aider).*$/i, "")
+    .replace(/veuillez (me )?(fournir|donner) le texte.*$/i, "")
+    .replace(/^(il faut|on va|on peut|je vais) /i, "")
     .trim();
 
   console.log("After removing politeness:", cleanedText);
@@ -108,10 +111,12 @@ async function cleanPrompt(transcription: string): Promise<string | null> {
   }
 
   // If the cleaned text is empty or just asking for input, return null
-  if (!cleanedText ||
-      /^(fournir|donner|montrer|partager) le texte/i.test(cleanedText) ||
-      /reformuler votre texte/i.test(cleanedText) ||
-      /^voici|^c'est/i.test(cleanedText)) {
+  if (
+    !cleanedText ||
+    /^(fournir|donner|montrer|partager) le texte/i.test(cleanedText) ||
+    /reformuler votre texte/i.test(cleanedText) ||
+    /^voici|^c'est/i.test(cleanedText)
+  ) {
     console.log("Invalid command detected");
     return null;
   }
@@ -221,7 +226,6 @@ export default async function Command() {
     }
 
     console.log("Operation completed successfully");
-
   } catch (error) {
     console.error("Error:", error);
     await showHUD("❌ Error: " + (error instanceof Error ? error.message : "An error occurred"));

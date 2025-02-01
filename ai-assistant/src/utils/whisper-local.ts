@@ -146,9 +146,7 @@ export async function cleanupWhisper(): Promise<void> {
       fs.rmSync(WHISPER_DIR, { recursive: true, force: true });
 
       const sizeInMB = (totalSize / (1024 * 1024)).toFixed(1);
-      const message = totalSize > 0
-        ? `Cleanup complete! Freed ${sizeInMB}MB of space`
-        : "Cleanup complete!";
+      const message = totalSize > 0 ? `Cleanup complete! Freed ${sizeInMB}MB of space` : "Cleanup complete!";
 
       toast.style = Toast.Style.Success;
       toast.message = message;
@@ -157,14 +155,14 @@ export async function cleanupWhisper(): Promise<void> {
         "Whisper Cleanup Complete",
         totalSize > 0
           ? `Successfully removed Whisper files and freed ${sizeInMB}MB of space.`
-          : "Successfully removed Whisper files."
+          : "Successfully removed Whisper files.",
       );
     } else {
       toast.style = Toast.Style.Success;
       toast.message = "Nothing to clean up";
     }
 
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await new Promise((resolve) => setTimeout(resolve, 1000));
     await toast.hide();
   } catch (error) {
     console.error("Error cleaning up Whisper:", error);
@@ -189,7 +187,7 @@ export async function installWhisper(): Promise<void> {
     if (await isWhisperBinaryWorking()) {
       toast.style = Toast.Style.Success;
       toast.message = "Whisper is already installed and working!";
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise((resolve) => setTimeout(resolve, 1000));
       await toast.hide();
       return;
     }
@@ -247,7 +245,7 @@ export async function installWhisper(): Promise<void> {
     process.env.LC_ALL = "en_US.UTF-8";
 
     // Wait a moment for the file system to update
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await new Promise((resolve) => setTimeout(resolve, 1000));
 
     // Try to run the binary with different options
     try {
@@ -270,10 +268,10 @@ export async function installWhisper(): Promise<void> {
 
     await showSystemNotification(
       "Offline Dictation Ready",
-      "Whisper has been installed successfully. You can now use offline dictation with downloaded models."
+      "Whisper has been installed successfully. You can now use offline dictation with downloaded models.",
     );
 
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await new Promise((resolve) => setTimeout(resolve, 1000));
     await toast.hide();
   } catch (error) {
     console.error("Error installing Whisper:", error);
@@ -282,10 +280,10 @@ export async function installWhisper(): Promise<void> {
 
     await showSystemNotification(
       "Whisper Installation Failed",
-      "Installation failed. You can continue using online dictation. Try installing again later."
+      "Installation failed. You can continue using online dictation. Try installing again later.",
     );
 
-    throw new Error(`Failed to install Whisper: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    throw new Error(`Failed to install Whisper: ${error instanceof Error ? error.message : "Unknown error"}`);
   }
 }
 
@@ -314,7 +312,7 @@ export async function downloadModel(model: string): Promise<void> {
 
     toast.style = Toast.Style.Success;
     toast.message = "Model downloaded successfully!";
-    await new Promise(resolve => setTimeout(resolve, 1000)); // Show success message for 1 second
+    await new Promise((resolve) => setTimeout(resolve, 1000)); // Show success message for 1 second
     await toast.hide();
   } catch (error) {
     console.error("Error downloading model:", error);
@@ -338,7 +336,7 @@ export async function transcribeAudio(
   audioPath: string,
   model: string,
   language?: string,
-  onlineTranscribe?: (path: string) => Promise<string>
+  onlineTranscribe?: (path: string) => Promise<string>,
 ): Promise<string> {
   // Check if local transcription is available
   const whisperInstalled = await isWhisperInstalled();
@@ -348,7 +346,7 @@ export async function transcribeAudio(
 
     try {
       const { stdout } = await execAsync(
-        `${whisperPath} -m ${modelPath} -f ${audioPath}${language ? ` -l ${language}` : ""}`
+        `${whisperPath} -m ${modelPath} -f ${audioPath}${language ? ` -l ${language}` : ""}`,
       );
 
       return stdout.trim();
@@ -379,9 +377,10 @@ export function getDownloadedModels(): string[] {
     return [];
   }
 
-  return fs.readdirSync(WHISPER_MODELS_DIR)
-    .filter(file => file.startsWith("ggml-") && file.endsWith(".bin"))
-    .map(file => file.replace("ggml-", "").replace(".bin", ""));
+  return fs
+    .readdirSync(WHISPER_MODELS_DIR)
+    .filter((file) => file.startsWith("ggml-") && file.endsWith(".bin"))
+    .map((file) => file.replace("ggml-", "").replace(".bin", ""));
 }
 
 /**
@@ -399,7 +398,7 @@ export async function cleanupOldModels(): Promise<void> {
     return;
   }
 
-  const thirtyDaysAgo = Date.now() - (30 * 24 * 60 * 60 * 1000);
+  const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
 
   const files = fs.readdirSync(WHISPER_MODELS_DIR);
   for (const file of files) {

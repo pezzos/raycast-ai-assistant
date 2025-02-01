@@ -2,55 +2,70 @@
   "$schema": "https://www.raycast.com/schemas/extension.json",
   "name": "ai-assistant",
   "title": "AI Assistant",
-  "description": "AI-powered tools for translation, dictation, and more",
+  "description": "Powerful AI tools for translation, dictation, text improvement, and page summarization. Features smart language detection, offline speech recognition, and seamless browser integration.",
   "icon": "extension-icon.png",
   "author": "pezzos",
+  "version": "1.0.0",
   "categories": [
-    "Productivity"
+    "Productivity",
+    "Applications",
+    "Developer Tools"
   ],
   "license": "MIT",
+  "keywords": [
+    "ai",
+    "translation",
+    "dictation",
+    "speech-to-text",
+    "summarization",
+    "openai",
+    "whisper",
+    "productivity",
+    "prompt"
+  ],
+  "homepage": "https://github.com/pezzos/raycast-ai-assistant",
   "commands": [
     {
       "name": "translate",
       "title": "Translate Selected Text",
       "description": "Smart translation between your primary languages (auto-detects source language)",
       "mode": "no-view",
-      "icon": "🌐"
+      "icon": "command-icon-translate.png"
     },
     {
       "name": "dictate",
       "title": "Dictate Text",
       "description": "Convert speech to text with optional translation",
       "mode": "no-view",
-      "icon": "🎙️"
+      "icon": "command-icon-dictate.png"
     },
     {
       "name": "dictate-prompt",
       "title": "Dictate AI Prompt",
       "description": "Use voice commands to generate or modify text with AI",
       "mode": "no-view",
-      "icon": "🤖"
+      "icon": "command-icon-prompt.png"
     },
     {
       "name": "settings",
       "title": "Settings",
       "description": "Configure AI Assistant preferences and features",
       "mode": "view",
-      "icon": "⚙️"
+      "icon": "command-icon-settings.png"
     },
     {
       "name": "summarize-page",
-      "title": "Summarize A Text or the Current Page",
+      "title": "Summarize a Text or the Current Page",
       "description": "Get a quick AI summary",
       "mode": "view",
-      "icon": "📝"
+      "icon": "command-icon-summarize.png"
     },
     {
       "name": "dictate-models",
       "title": "Manage Whisper Models",
       "description": "Install Whisper and manage local speech recognition models",
       "mode": "view",
-      "icon": "🔧"
+      "icon": "command-icon-models.png"
     }
   ],
   "preferences": [
