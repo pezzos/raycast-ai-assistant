@@ -3,7 +3,7 @@
 A powerful collection of AI-powered tools to enhance your productivity, featuring smart translation, voice dictation, text improvement, and page summarization capabilities.
 
 ## About the Author
-[Alexandre Pezzotta](https://github.com/pezzos) - Software Engineer passionate about AI and automation. Feel free to check out my other projects on GitHub!
+[Alexandre Pezzotta](https://github.com/pezzos) - Engineer passionate about AI and automation. Feel free to check out my other projects on GitHub!
 
 ## Features
 
@@ -174,9 +174,8 @@ See [CHANGELOG.md](CHANGELOG.md) for all changes and release notes.
 
 ## TODO
 - [ ] Add support for more AI models (Claude, Gemini, etc.)
-- [ ] Allow the use of a single gpt-4o-mini-audio-preview call instead of one whisper + one gpt-4o-mini call.
+- [ ] Improve UI
 - [ ] Add support for more languages
-- [ ] Add custom prompt templates
 - [ ] Improve error handling and recovery
 - [ ] Add unit tests and integration tests
 - [ ] Improve caching mechanism
