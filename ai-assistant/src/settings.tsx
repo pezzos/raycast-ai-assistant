@@ -12,9 +12,10 @@ export const LLM_MODEL_KEY = "llm-model";
 export const FIX_TEXT_KEY = "fix-text";
 export const SHOW_EXPLORE_MORE_KEY = "show-explore-more";
 export const SILENCE_TIMEOUT_KEY = "silence-timeout";
+export const USE_PERSONAL_DICTIONARY_KEY = "use-personal-dictionary";
 
 const LANGUAGE_OPTIONS = [
-  { value: "auto", title: "Auto-detect" },
+  { value: "auto", title: "Keep the same language as the input" },
   { value: "en", title: "English" },
   { value: "fr", title: "French" },
   { value: "es", title: "Spanish" },
@@ -58,6 +59,7 @@ export default function Command() {
   const [showExploreMore, setShowExploreMore] = useState<boolean>(true);
   const [experimentalSingleCall, setExperimentalSingleCall] = useState<boolean>(false);
   const [silenceTimeout, setSilenceTimeout] = useState<string>("2.0");
+  const [usePersonalDictionary, setUsePersonalDictionary] = useState<boolean>(false);
 
   useEffect(() => {
     // Load all saved preferences
@@ -72,6 +74,7 @@ export default function Command() {
       const savedShowExploreMore = await LocalStorage.getItem<string>(SHOW_EXPLORE_MORE_KEY);
       const savedExperimentalSingleCall = await LocalStorage.getItem<string>(EXPERIMENTAL_SINGLE_CALL_KEY);
       const savedSilenceTimeout = await LocalStorage.getItem<string>(SILENCE_TIMEOUT_KEY);
+      const savedUsePersonalDictionary = await LocalStorage.getItem<string>(USE_PERSONAL_DICTIONARY_KEY);
 
       // Update download status for each model
       WHISPER_MODEL_OPTIONS.forEach((model) => {
@@ -88,6 +91,7 @@ export default function Command() {
       if (savedShowExploreMore) setShowExploreMore(savedShowExploreMore === "true");
       if (savedExperimentalSingleCall) setExperimentalSingleCall(savedExperimentalSingleCall === "true");
       if (savedSilenceTimeout) setSilenceTimeout(savedSilenceTimeout);
+      if (savedUsePersonalDictionary) setUsePersonalDictionary(savedUsePersonalDictionary === "true");
     };
 
     loadSettings();
@@ -106,6 +110,7 @@ export default function Command() {
       LocalStorage.setItem(SHOW_EXPLORE_MORE_KEY, showExploreMore.toString()),
       LocalStorage.setItem(EXPERIMENTAL_SINGLE_CALL_KEY, experimentalSingleCall.toString()),
       LocalStorage.setItem(SILENCE_TIMEOUT_KEY, silenceTimeout),
+      LocalStorage.setItem(USE_PERSONAL_DICTIONARY_KEY, usePersonalDictionary.toString()),
     ]);
 
     await showHUD("Settings saved successfully");
@@ -259,6 +264,19 @@ export default function Command() {
         info="Include additional resources and related topics in page summaries"
         value={showExploreMore}
         onChange={setShowExploreMore}
+      />
+
+      <Form.Separator />
+
+      <Form.Description text="Personal Dictionary Settings" />
+
+      <Form.Checkbox
+        id="usePersonalDictionary"
+        label="Use personal dictionary for transcription"
+        title="Personal Dictionary"
+        info="Apply personal dictionary corrections during speech recognition"
+        value={usePersonalDictionary}
+        onChange={setUsePersonalDictionary}
       />
     </Form>
   );

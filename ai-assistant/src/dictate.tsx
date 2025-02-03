@@ -10,9 +10,11 @@ import {
   WHISPER_MODEL_KEY,
   EXPERIMENTAL_SINGLE_CALL_KEY,
   SILENCE_TIMEOUT_KEY,
+  USE_PERSONAL_DICTIONARY_KEY,
 } from "./settings";
 import { cleanText, getLLMModel } from "./utils/common";
 import { isWhisperInstalled, isModelDownloaded, transcribeAudio } from "./utils/whisper-local";
+import { getPersonalDictionaryPrompt } from "./utils/dictionary";
 
 const execAsync = promisify(exec);
 const SOX_PATH = "/opt/homebrew/bin/sox";
@@ -64,11 +66,13 @@ export default async function Command() {
     const whisperModel = (await LocalStorage.getItem<string>(WHISPER_MODEL_KEY)) || "base";
     const experimentalSingleCall = (await LocalStorage.getItem<string>(EXPERIMENTAL_SINGLE_CALL_KEY)) === "true";
     const silenceTimeout = (await LocalStorage.getItem<string>(SILENCE_TIMEOUT_KEY)) || "2.0";
+    const usePersonalDictionary = (await LocalStorage.getItem<string>(USE_PERSONAL_DICTIONARY_KEY)) === "true";
     console.log("Target language:", targetLanguage);
     console.log("Whisper mode:", whisperMode);
     console.log("Whisper model:", whisperModel);
     console.log("Experimental single call mode:", experimentalSingleCall);
     console.log("Silence timeout:", silenceTimeout);
+    console.log("Use personal dictionary:", usePersonalDictionary);
 
     // Vérifier si Whisper local est disponible si nécessaire
     if (whisperMode === "local") {
@@ -127,9 +131,10 @@ export default async function Command() {
     } else {
       if (experimentalSingleCall) {
         console.log("Transcribe using: OpenAI GPT-4o-audio-preview");
-        // Lire le fichier audio en base64
         const audioBuffer = fs.readFileSync(outputPath);
         const base64Audio = audioBuffer.toString("base64");
+
+        const dictionaryPrompt = usePersonalDictionary ? await getPersonalDictionaryPrompt() : "";
 
         const completion = await openai.chat.completions.create({
           model: "gpt-4o-audio-preview",
@@ -140,7 +145,11 @@ export default async function Command() {
               content: [
                 {
                   type: "text",
-                  text: `Transcribe this audio${targetLanguage === "auto" ? " in the same language as the audio input" : ` in ${targetLanguage}`}. ${preferences.fixText ? "Fix any grammar or spelling issues while keeping the same language." : ""}`,
+                  text: `Transcribe this audio${
+                    targetLanguage === "auto" ? " in the same language as the audio input" : ` in ${targetLanguage}`
+                  }. ${preferences.fixText ? "Fix any grammar or spelling issues while keeping the same language." : ""}${
+                    dictionaryPrompt ? "\n\n" + dictionaryPrompt : ""
+                  }`,
                 },
                 { type: "input_audio", input_audio: { data: base64Audio, format: "wav" } },
               ],
@@ -161,6 +170,30 @@ export default async function Command() {
           model: "whisper-1",
           language: targetLanguage === "auto" ? undefined : targetLanguage,
         });
+
+        // If using personal dictionary, apply corrections through GPT
+        if (usePersonalDictionary) {
+          const dictionaryPrompt = await getPersonalDictionaryPrompt();
+          if (dictionaryPrompt) {
+            console.log("Applying personal dictionary corrections");
+            const completion = await openai.chat.completions.create({
+              model: getLLMModel(),
+              messages: [
+                {
+                  role: "system",
+                  content: "You are a text correction assistant. Your task is to apply personal dictionary corrections to the transcribed text while preserving the original meaning and formatting.",
+                },
+                {
+                  role: "user",
+                  content: `Please correct this transcribed text according to the personal dictionary:\n\n${dictionaryPrompt}\n\nText to correct:\n"${transcription.text}"\n\nRespond ONLY with the corrected text.`,
+                },
+              ],
+              temperature: 0.3,
+            });
+
+            transcription.text = completion.choices[0].message.content?.trim() || transcription.text;
+          }
+        }
       }
     }
 
