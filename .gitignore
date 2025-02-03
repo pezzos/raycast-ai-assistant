@@ -2,5 +2,4 @@
 .cursorrules
 ai-assistant/src/node_modules/
 *.wav
-package-lock.json
 node_modules/
