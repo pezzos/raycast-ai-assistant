@@ -11,6 +11,7 @@ export const SECONDARY_LANG_KEY = "secondary-language";
 export const LLM_MODEL_KEY = "llm-model";
 export const FIX_TEXT_KEY = "fix-text";
 export const SHOW_EXPLORE_MORE_KEY = "show-explore-more";
+export const SILENCE_TIMEOUT_KEY = "silence-timeout";
 
 const LANGUAGE_OPTIONS = [
   { value: "auto", title: "Auto-detect" },
@@ -56,6 +57,7 @@ export default function Command() {
   const [fixText, setFixText] = useState<boolean>(true);
   const [showExploreMore, setShowExploreMore] = useState<boolean>(true);
   const [experimentalSingleCall, setExperimentalSingleCall] = useState<boolean>(false);
+  const [silenceTimeout, setSilenceTimeout] = useState<string>("2.0");
 
   useEffect(() => {
     // Load all saved preferences
@@ -69,6 +71,7 @@ export default function Command() {
       const savedFixText = await LocalStorage.getItem<string>(FIX_TEXT_KEY);
       const savedShowExploreMore = await LocalStorage.getItem<string>(SHOW_EXPLORE_MORE_KEY);
       const savedExperimentalSingleCall = await LocalStorage.getItem<string>(EXPERIMENTAL_SINGLE_CALL_KEY);
+      const savedSilenceTimeout = await LocalStorage.getItem<string>(SILENCE_TIMEOUT_KEY);
 
       // Update download status for each model
       WHISPER_MODEL_OPTIONS.forEach((model) => {
@@ -84,6 +87,7 @@ export default function Command() {
       if (savedFixText) setFixText(savedFixText === "true");
       if (savedShowExploreMore) setShowExploreMore(savedShowExploreMore === "true");
       if (savedExperimentalSingleCall) setExperimentalSingleCall(savedExperimentalSingleCall === "true");
+      if (savedSilenceTimeout) setSilenceTimeout(savedSilenceTimeout);
     };
 
     loadSettings();
@@ -101,6 +105,7 @@ export default function Command() {
       LocalStorage.setItem(FIX_TEXT_KEY, fixText.toString()),
       LocalStorage.setItem(SHOW_EXPLORE_MORE_KEY, showExploreMore.toString()),
       LocalStorage.setItem(EXPERIMENTAL_SINGLE_CALL_KEY, experimentalSingleCall.toString()),
+      LocalStorage.setItem(SILENCE_TIMEOUT_KEY, silenceTimeout),
     ]);
 
     await showHUD("Settings saved successfully");
@@ -220,6 +225,19 @@ export default function Command() {
           <Form.Dropdown.Item key={model.value} value={model.value} title={model.title} />
         ))}
       </Form.Dropdown>
+
+      <Form.Separator />
+
+      <Form.Description text="Recording Settings" />
+
+      <Form.TextField
+        id="silenceTimeout"
+        title="Silence Timeout"
+        placeholder="2.0"
+        info="Number of seconds of silence before stopping recording (e.g. 2.0)"
+        value={silenceTimeout}
+        onChange={setSilenceTimeout}
+      />
 
       <Form.Separator />
 

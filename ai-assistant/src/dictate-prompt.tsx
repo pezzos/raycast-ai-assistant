@@ -1,10 +1,11 @@
-import { showHUD, getPreferenceValues, Clipboard } from "@raycast/api";
+import { showHUD, getPreferenceValues, Clipboard, LocalStorage } from "@raycast/api";
 import OpenAI from "openai";
 import fs from "fs";
 import path from "path";
 import { exec } from "child_process";
 import { promisify } from "util";
 import { cleanText, getLLMModel, getSelectedText, replaceSelectedText } from "./utils/common";
+import { SILENCE_TIMEOUT_KEY } from "./settings";
 
 const execAsync = promisify(exec);
 const SOX_PATH = "/opt/homebrew/bin/sox";
@@ -130,6 +131,8 @@ export default async function Command() {
 
   try {
     const preferences = getPreferenceValues<Preferences>();
+    const silenceTimeout = (await LocalStorage.getItem<string>(SILENCE_TIMEOUT_KEY)) || "2.0";
+    console.log("Silence timeout:", silenceTimeout);
 
     // Initialize OpenAI
     const openai = new OpenAI({
@@ -170,7 +173,7 @@ export default async function Command() {
 
     const command = `
       export PATH="/opt/homebrew/bin:$PATH";
-      "${SOX_PATH}" -d "${outputPath}" silence 1 0.1 2% 1 2.0 2%
+      "${SOX_PATH}" -d "${outputPath}" silence 1 0.1 2% 1 ${silenceTimeout} 2%
     `;
 
     await execAsync(command, { shell: "/bin/zsh" });

@@ -4,7 +4,7 @@ import fs from "fs";
 import path from "path";
 import { exec } from "child_process";
 import { promisify } from "util";
-import { DICTATE_TARGET_LANG_KEY, WHISPER_MODE_KEY, WHISPER_MODEL_KEY, EXPERIMENTAL_SINGLE_CALL_KEY } from "./settings";
+import { DICTATE_TARGET_LANG_KEY, WHISPER_MODE_KEY, WHISPER_MODEL_KEY, EXPERIMENTAL_SINGLE_CALL_KEY, SILENCE_TIMEOUT_KEY } from "./settings";
 import { cleanText, getLLMModel } from "./utils/common";
 import { isWhisperInstalled, isModelDownloaded, transcribeAudio } from "./utils/whisper-local";
 
@@ -56,10 +56,12 @@ export default async function Command() {
     const whisperMode = (await LocalStorage.getItem<string>(WHISPER_MODE_KEY)) || "online";
     const whisperModel = (await LocalStorage.getItem<string>(WHISPER_MODEL_KEY)) || "base";
     const experimentalSingleCall = (await LocalStorage.getItem<string>(EXPERIMENTAL_SINGLE_CALL_KEY)) === "true";
+    const silenceTimeout = (await LocalStorage.getItem<string>(SILENCE_TIMEOUT_KEY)) || "2.0";
     console.log("Target language:", targetLanguage);
     console.log("Whisper mode:", whisperMode);
     console.log("Whisper model:", whisperModel);
     console.log("Experimental single call mode:", experimentalSingleCall);
+    console.log("Silence timeout:", silenceTimeout);
 
     // Vérifier si Whisper local est disponible si nécessaire
     if (whisperMode === "local") {
@@ -97,7 +99,7 @@ export default async function Command() {
 
     const command = `
       export PATH="/opt/homebrew/bin:$PATH";
-      "${SOX_PATH}" -d "${outputPath}" silence 1 0.1 2% 1 2.0 2%
+      "${SOX_PATH}" -d "${outputPath}" silence 1 0.1 2% 1 ${silenceTimeout} 2%
     `;
 
     await execAsync(command, { shell: "/bin/zsh" });
