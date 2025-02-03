@@ -40,6 +40,13 @@
       "icon": "command-icon-dictate.png"
     },
     {
+      "name": "dictate-hold",
+      "title": "Dictate Text (Hold Mode)",
+      "description": "Convert speech to text with manual stop (press ⌘+. to stop)",
+      "mode": "no-view",
+      "icon": "command-icon-dictate.png"
+    },
+    {
       "name": "dictate-prompt",
       "title": "Dictate AI Prompt",
       "description": "Use voice commands to generate or modify text with AI",
