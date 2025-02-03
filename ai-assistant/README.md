@@ -175,6 +175,8 @@ See [CHANGELOG.md](CHANGELOG.md) for all changes and release notes.
 ## TODO
 - [ ] Add support for more AI models (Claude, Gemini, etc.)
 - [ ] Improve UI
+- [ ] Add personnal dictionnary with custom words and command to add replacement words
+- [ ] Add audio output stop while recording
 - [ ] Add support for more languages
 - [ ] Improve error handling and recovery
 - [ ] Add unit tests and integration tests

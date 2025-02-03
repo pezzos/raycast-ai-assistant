@@ -4,12 +4,19 @@ import fs from "fs";
 import path from "path";
 import { exec } from "child_process";
 import { promisify } from "util";
-import { DICTATE_TARGET_LANG_KEY, WHISPER_MODE_KEY, WHISPER_MODEL_KEY, EXPERIMENTAL_SINGLE_CALL_KEY, SILENCE_TIMEOUT_KEY } from "./settings";
+import {
+  DICTATE_TARGET_LANG_KEY,
+  WHISPER_MODE_KEY,
+  WHISPER_MODEL_KEY,
+  EXPERIMENTAL_SINGLE_CALL_KEY,
+  SILENCE_TIMEOUT_KEY,
+} from "./settings";
 import { cleanText, getLLMModel } from "./utils/common";
 import { isWhisperInstalled, isModelDownloaded, transcribeAudio } from "./utils/whisper-local";
 
 const execAsync = promisify(exec);
 const SOX_PATH = "/opt/homebrew/bin/sox";
+const RECORDINGS_DIR = path.join(__dirname, "recordings");
 
 interface Preferences {
   openaiApiKey: string;
@@ -82,15 +89,14 @@ export default async function Command() {
     });
 
     // Préparer le fichier temporaire
-    const tempDir = path.join(process.env.TMPDIR || "/tmp", "raycast-dictate");
-    if (!fs.existsSync(tempDir)) {
-      fs.mkdirSync(tempDir, { recursive: true });
+    if (!fs.existsSync(RECORDINGS_DIR)) {
+      fs.mkdirSync(RECORDINGS_DIR, { recursive: true });
     }
 
     // Clean up old recordings
-    await cleanupOldRecordings(tempDir);
+    await cleanupOldRecordings(RECORDINGS_DIR);
 
-    const outputPath = path.join(tempDir, `recording-${Date.now()}.wav`);
+    const outputPath = path.join(RECORDINGS_DIR, `recording-${Date.now()}.wav`);
     console.log("Recording will be saved to:", outputPath);
 
     // Démarrer l'enregistrement
