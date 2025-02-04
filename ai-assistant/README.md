@@ -105,6 +105,34 @@ A powerful collection of AI-powered tools to enhance your productivity, featurin
    - Speech recognition mode
    - Optional features
 
+#### Detailed Settings Description
+
+##### Language Settings
+- **Primary Language**: Your main language for translations and AI interactions
+- **Secondary Language**: Your alternate language for translations
+- **Default Output Language**: Language used as output after speech recognition (can be set to "Keep the same language as the input")
+
+##### Speech Recognition Settings
+- **Whisper Mode**: Choose between online (OpenAI API) or local processing
+- **Experimental Single Call Mode**: (Online mode only) Send audio directly to GPT-4o-mini-audio-preview for faster processing instead of using Whisper then the selected model to reduce latency
+- **Local Whisper Model**: (Local mode only) Select the local Whisper model to use (Tiny, Base, Small, Medium) to have faster processing (require more disk space and need to be set up manually)
+
+##### AI Model Settings
+- **AI Model**: Select the AI model for all operations:
+  - GPT-4o: Most capable model
+  - GPT-4o Mini: Fastest/Recommended
+  - o1: Most powerful reasoning model
+  - o1-mini: Smaller reasoning model
+
+##### Recording Settings
+- **Silence Timeout**: Number of seconds of silence before stopping recording
+- **Mute During Dictation**: Automatically mute system audio output while recording (e.g.: music, notification sounds)
+
+##### Feature Settings
+- **Improve Text Quality**: Automatically fix grammar and spelling during translations and text generation
+- **Show 'Explore More' in Summaries**: Include additional resources and related topics in page summaries
+- **Personal Dictionary**: Apply personal dictionary corrections during speech recognition
+
 ## Usage Tips
 - Use keyboard shortcuts in Raycast for quick access
 - Combine commands for maximum productivity
@@ -175,8 +203,7 @@ See [CHANGELOG.md](CHANGELOG.md) for all changes and release notes.
 ## TODO
 - [ ] Add support for more AI models (Claude, Gemini, etc.)
 - [ ] Improve UI
-- [ ] Add personnal dictionnary with custom words and command to add replacement words
-- [ ] Add audio output stop while recording
+- [x] Add personal dictionary with custom words and command to add replacement words
 - [ ] Add support for more languages
 - [ ] Improve error handling and recovery
 - [ ] Add unit tests and integration tests
