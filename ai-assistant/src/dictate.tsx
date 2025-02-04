@@ -11,10 +11,12 @@ import {
   EXPERIMENTAL_SINGLE_CALL_KEY,
   SILENCE_TIMEOUT_KEY,
   USE_PERSONAL_DICTIONARY_KEY,
+  MUTE_DURING_DICTATION_KEY,
 } from "./settings";
 import { cleanText, getLLMModel } from "./utils/common";
 import { isWhisperInstalled, isModelDownloaded, transcribeAudio } from "./utils/whisper-local";
 import { getPersonalDictionaryPrompt } from "./utils/dictionary";
+import { setSystemAudioMute, isSystemAudioMuted } from "./utils/audio";
 
 const execAsync = promisify(exec);
 const SOX_PATH = "/opt/homebrew/bin/sox";
@@ -52,12 +54,7 @@ async function cleanupOldRecordings(tempDir: string) {
 export default async function Command() {
   console.log("Starting dictation command...");
 
-  // Vérifier que sox est installé
-  if (!fs.existsSync(SOX_PATH)) {
-    console.error(`Sox not found at path: ${SOX_PATH}`);
-    await showHUD("🎙️ Sox not found - Please install it with: brew install sox");
-    return;
-  }
+  let originalMuteState = false;
 
   try {
     const preferences = getPreferenceValues<Preferences>();
@@ -67,12 +64,14 @@ export default async function Command() {
     const experimentalSingleCall = (await LocalStorage.getItem<string>(EXPERIMENTAL_SINGLE_CALL_KEY)) === "true";
     const silenceTimeout = (await LocalStorage.getItem<string>(SILENCE_TIMEOUT_KEY)) || "2.0";
     const usePersonalDictionary = (await LocalStorage.getItem<string>(USE_PERSONAL_DICTIONARY_KEY)) === "true";
+    const muteDuringDictation = (await LocalStorage.getItem<string>(MUTE_DURING_DICTATION_KEY)) === "true";
     console.log("Target language:", targetLanguage);
     console.log("Whisper mode:", whisperMode);
     console.log("Whisper model:", whisperModel);
     console.log("Experimental single call mode:", experimentalSingleCall);
     console.log("Silence timeout:", silenceTimeout);
     console.log("Use personal dictionary:", usePersonalDictionary);
+    console.log("Mute during dictation:", muteDuringDictation);
 
     // Vérifier si Whisper local est disponible si nécessaire
     if (whisperMode === "local") {
@@ -103,6 +102,12 @@ export default async function Command() {
     const outputPath = path.join(RECORDINGS_DIR, `recording-${Date.now()}.wav`);
     console.log("Recording will be saved to:", outputPath);
 
+    // Handle audio muting if enabled
+    if (muteDuringDictation) {
+      originalMuteState = await isSystemAudioMuted();
+      await setSystemAudioMute(true);
+    }
+
     // Démarrer l'enregistrement
     await showHUD("🎙️ Recording... (will stop after 2s of silence)");
     console.log("Starting recording...");
@@ -114,6 +119,11 @@ export default async function Command() {
 
     await execAsync(command, { shell: "/bin/zsh" });
     console.log("Recording completed");
+
+    // Restore original audio state if needed
+    if (muteDuringDictation) {
+      await setSystemAudioMute(originalMuteState);
+    }
 
     // Traiter l'audio
     await showHUD("🔄 Converting speech to text...");
@@ -240,6 +250,10 @@ export default async function Command() {
       console.log("Transcription pasted:", finalText);
     }
   } catch (error) {
+    // Ensure audio is restored even if an error occurs
+    if (originalMuteState !== undefined) {
+      await setSystemAudioMute(originalMuteState);
+    }
     console.error("Error:", error);
     await showHUD("❌ Error: " + (error instanceof Error ? error.message : "An error occurred"));
   } finally {
