@@ -55,6 +55,7 @@ export default async function Command() {
   console.log("Starting dictation command...");
 
   let originalMuteState = false;
+  let muteDuringDictation = false;
 
   try {
     const preferences = getPreferenceValues<Preferences>();
@@ -64,7 +65,7 @@ export default async function Command() {
     const experimentalSingleCall = (await LocalStorage.getItem<string>(EXPERIMENTAL_SINGLE_CALL_KEY)) === "true";
     const silenceTimeout = (await LocalStorage.getItem<string>(SILENCE_TIMEOUT_KEY)) || "2.0";
     const usePersonalDictionary = (await LocalStorage.getItem<string>(USE_PERSONAL_DICTIONARY_KEY)) === "true";
-    const muteDuringDictation = (await LocalStorage.getItem<string>(MUTE_DURING_DICTATION_KEY)) === "true";
+    muteDuringDictation = (await LocalStorage.getItem<string>(MUTE_DURING_DICTATION_KEY)) === "true";
     console.log("Target language:", targetLanguage);
     console.log("Whisper mode:", whisperMode);
     console.log("Whisper model:", whisperModel);
@@ -73,7 +74,7 @@ export default async function Command() {
     console.log("Use personal dictionary:", usePersonalDictionary);
     console.log("Mute during dictation:", muteDuringDictation);
 
-    // Vérifier si Whisper local est disponible si nécessaire
+    // Check if local Whisper is available if needed
     if (whisperMode === "local") {
       const isWhisperReady = await isWhisperInstalled();
       if (!isWhisperReady) {
@@ -91,7 +92,7 @@ export default async function Command() {
       apiKey: preferences.openaiApiKey,
     });
 
-    // Préparer le fichier temporaire
+    // Prepare temporary file
     if (!fs.existsSync(RECORDINGS_DIR)) {
       fs.mkdirSync(RECORDINGS_DIR, { recursive: true });
     }
@@ -108,7 +109,7 @@ export default async function Command() {
       await setSystemAudioMute(true);
     }
 
-    // Démarrer l'enregistrement
+    // Start recording
     await showHUD("🎙️ Recording... (will stop after 2s of silence)");
     console.log("Starting recording...");
 
@@ -125,7 +126,7 @@ export default async function Command() {
       await setSystemAudioMute(originalMuteState);
     }
 
-    // Traiter l'audio
+    // Process audio
     await showHUD("🔄 Converting speech to text...");
     console.log("Processing audio file:", outputPath);
 
@@ -191,7 +192,8 @@ export default async function Command() {
               messages: [
                 {
                   role: "system",
-                  content: "You are a text correction assistant. Your task is to apply personal dictionary corrections to the transcribed text while preserving the original meaning and formatting.",
+                  content:
+                    "You are a text correction assistant. Your task is to apply personal dictionary corrections to the transcribed text while preserving the original meaning and formatting.",
                 },
                 {
                   role: "user",
@@ -214,11 +216,11 @@ export default async function Command() {
       finalText = await cleanText(finalText, openai);
     }
 
-    // Nettoyer le fichier temporaire
+    // Clean up temporary file
     fs.unlinkSync(outputPath);
     console.log("Temporary file cleaned up");
 
-    // Traduire si nécessaire
+    // Translate if needed
     if (targetLanguage !== "auto" && !experimentalSingleCall) {
       await showHUD(`🌐 Translating to ${targetLanguage}...`);
       console.log("Translating to:", targetLanguage);
@@ -250,18 +252,12 @@ export default async function Command() {
       console.log("Transcription pasted:", finalText);
     }
   } catch (error) {
-    // Ensure audio is restored even if an error occurs
-    if (originalMuteState !== undefined) {
+    console.error("Error during dictation:", error);
+    await showHUD("❌ Error during dictation");
+
+    // Restore original audio state in case of error
+    if (muteDuringDictation) {
       await setSystemAudioMute(originalMuteState);
-    }
-    console.error("Error:", error);
-    await showHUD("❌ Error: " + (error instanceof Error ? error.message : "An error occurred"));
-  } finally {
-    // Nettoyage final
-    try {
-      await execAsync("pkill sox");
-    } catch (error) {
-      // Ignore pkill errors
     }
   }
 }

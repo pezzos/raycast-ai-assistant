@@ -73,12 +73,7 @@ export default function Command() {
     >
       <Form.Description text="Add selected word to personal dictionary" />
       <Form.TextField id="original" title="Selected Word/Phrase" value={selectedWord} />
-      <Form.TextField
-        id="correction"
-        title="Correction"
-        placeholder="Enter the correct word or phrase"
-        autoFocus
-      />
+      <Form.TextField id="correction" title="Correction" placeholder="Enter the correct word or phrase" autoFocus />
     </Form>
   );
 }

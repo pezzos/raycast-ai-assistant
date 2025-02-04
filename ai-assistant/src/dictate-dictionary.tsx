@@ -64,7 +64,7 @@ export default function Command() {
   const filteredEntries = entries.filter(
     (entry) =>
       entry.original.toLowerCase().includes(searchText.toLowerCase()) ||
-      entry.correction.toLowerCase().includes(searchText.toLowerCase())
+      entry.correction.toLowerCase().includes(searchText.toLowerCase()),
   );
 
   return (
@@ -91,11 +91,7 @@ export default function Command() {
                   placeholder="Enter the word or phrase that needs correction"
                   autoFocus
                 />
-                <Form.TextField
-                  id="correction"
-                  title="Correction"
-                  placeholder="Enter the correct word or phrase"
-                />
+                <Form.TextField id="correction" title="Correction" placeholder="Enter the correct word or phrase" />
               </Form>
             }
           />
