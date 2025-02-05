@@ -73,6 +73,20 @@
       "description": "Install Whisper and manage local speech recognition models",
       "mode": "view",
       "icon": "command-icon-models.png"
+    },
+    {
+      "name": "dictate-dictionary",
+      "title": "Manage Personal Dictionary",
+      "description": "Add, edit, or remove words from your personal dictionary",
+      "mode": "view",
+      "icon": "command-icon-models.png"
+    },
+    {
+      "name": "dictate-dictionary-add",
+      "title": "Add Selected Word to Dictionary",
+      "description": "Add the selected word to your personal dictionary with its correction",
+      "mode": "view",
+      "icon": "command-icon-models.png"
     }
   ],
   "preferences": [

@@ -1,5 +1,18 @@
 # AI Assistant Changelog
 
+## [1.1.0] - 2024-03-22
+
+### Added
+- Personal dictionary support for custom word replacements
+- System audio muting during dictation
+- Experimental single-call mode for faster online dictation
+- Configurable silence timeout for voice recording
+
+### Improved
+- Enhanced settings interface with detailed configuration options
+- Better documentation and settings descriptions
+- More flexible language handling options
+
 ## [1.0.0] - 2024-03-21
 
 ### Added
