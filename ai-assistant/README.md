@@ -246,6 +246,7 @@ Each directory contains its own README with detailed information about its purpo
 
 ## TODO
 - [ ] Improve the translation feature to translate entire pages and non-edittable text
+- [ ] Add fancier icons for the new commands
 - [ ] Add support for more AI models (Claude, Gemini, etc.)
 - [ ] Improve UI to describe the settings in more detail in Raycast preferences with user-friendly descriptions and use cases
 - [x] Add README.md in every directories

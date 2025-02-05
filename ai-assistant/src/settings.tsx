@@ -216,7 +216,11 @@ export default function Command() {
               />
             ))}
           </Form.Dropdown>
-          <Form.Description text="⚠️ Models need to be downloaded before use. Use the 'Manage Whisper Models' command to download and manage models." />
+          {!WHISPER_MODEL_OPTIONS.find((model) => model.value === whisperModel)?.isDownloaded ? (
+            <Form.Description text="⚠️ Models need to be downloaded before use. Use the 'Manage Whisper Models' command to download and manage models." />
+          ) : (
+            <Form.Description text="Selected model is downloaded and ready to use." />
+          )}
         </>
       )}
 
