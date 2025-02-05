@@ -76,11 +76,27 @@ Too long, no time? Select any web page* or text and run the command to get a cle
   - AI model selection
   - Speech recognition mode (online/local)
   - Whisper model management
+  - Personal dictionary management
+  - Audio settings (muting during dictation)
   - Feature toggles
 - **Usage:**
   - Trigger the command "**Settings**" through Raycast for main settings
   - Trigger the command "**Manage Whisper Models**" through Raycast for local Whisper model management
+  - Trigger the command "**Add Word to Dictionary**" through Raycast to add custom word replacements
+  - Trigger the command "**Manage Personal Dictionary**" through Raycast to manage your personal dictionary
 
+📖 Personal Dictionary
+Customize your dictation experience by adding your own words, names, and phrases to your personal dictionary. Perfect for technical terms, proper nouns, or frequently used expressions that need specific formatting or spelling.
+- **Features:**
+  - Add custom word replacements
+  - Support for technical terms and proper nouns
+  - Automatic correction during dictation
+  - Case-sensitive replacements
+  - Export/Import dictionary
+- **Usage:**
+  1. Trigger the command "**Add Word to Dictionary**" through Raycast
+  2. Enter the word to replace and its replacement
+  3. Your personal dictionary will be automatically applied during dictation
 
 ## Prerequisites
 
@@ -214,6 +230,7 @@ MIT License - see LICENSE file for details
 See [CHANGELOG.md](CHANGELOG.md) for all changes and release notes.
 
 ## TODO
+- [ ] Improve the translation feature to translate entire pages and non-edittable text
 - [ ] Add support for more AI models (Claude, Gemini, etc.)
 - [ ] Improve UI
 - [x] Add personal dictionary with custom words and command to add replacement words
