@@ -1,5 +1,27 @@
 # AI Assistant Changelog
 
+## [1.1.2] - 2024-03-24
+
+### Added
+- Added comprehensive README files in all major directories
+- Added detailed documentation for each component and utility
+- Added new active app detection feature for better context awareness
+- Added audio muting controls during dictation
+- Added transcription history improvements
+
+### Improved
+- Enhanced directory structure documentation
+- Updated development guidelines
+- Improved code organization
+- Better error handling in dictation process
+- Enhanced privacy documentation
+
+### Changed
+- Restructured project documentation
+- Updated main README with latest features
+- Improved installation instructions
+- Enhanced troubleshooting guide
+
 ## [1.1.1] - 2024-03-23
 
 ### Added

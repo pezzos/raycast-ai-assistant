@@ -35,6 +35,10 @@ With ultra-high-performance voice recognition, you can dictate your notes, email
   - Automatic language detection
   - Optional translation to target language
   - Text improvement and cleanup (removing filler words, correcting grammar)
+  - Automatic system audio muting during dictation
+  - Active application detection for better context
+  - Transcription history with metadata
+  - Personal dictionary integration
 - **Usage:**
   1. Trigger the command "**Dictate Text**" through Raycast
   2. Speak your text (recording stops after 2s of silence)
@@ -229,10 +233,22 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 See [CHANGELOG.md](CHANGELOG.md) for all changes and release notes.
 
+## Project Structure
+
+The project is organized into several key directories, each with its own documentation:
+
+- `/src`: Core source code and components
+- `/src/utils`: Utility functions and helpers
+- `/assets`: Static assets and icons
+- `/metadata`: Store and extension metadata
+
+Each directory contains its own README with detailed information about its purpose and contents.
+
 ## TODO
 - [ ] Improve the translation feature to translate entire pages and non-edittable text
 - [ ] Add support for more AI models (Claude, Gemini, etc.)
-- [ ] Improve UI
+- [ ] Improve UI to describe the settings in more detail in Raycast preferences with user-friendly descriptions and use cases
+- [x] Add README.md in every directories
 - [x] Add personal dictionary with custom words and command to add replacement words
 - [ ] Add support for more languages
 - [ ] Improve error handling and recovery

@@ -146,7 +146,7 @@ export default async function Command() {
 
     // Process audio
     await showHUD("🔄 Converting speech to text...");
-    startPeriodicNotification("Converting speech to text");
+    startPeriodicNotification("🔄 Still working on it...");
     console.log("Processing audio file:", outputPath);
 
     let transcription: Transcription;
