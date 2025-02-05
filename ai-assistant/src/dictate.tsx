@@ -17,6 +17,10 @@ import { cleanText, getLLMModel } from "./utils/common";
 import { isWhisperInstalled, isModelDownloaded, transcribeAudio } from "./utils/whisper-local";
 import { getPersonalDictionaryPrompt } from "./utils/dictionary";
 import { setSystemAudioMute, isSystemAudioMuted } from "./utils/audio";
+import { measureTime } from "./utils/timing";
+import { startPeriodicNotification, stopPeriodicNotification } from "./utils/timing";
+import { addTranscriptionToHistory, getRecordingsToKeep } from "./utils/transcription-history";
+import { getActiveApplication } from "./utils/active-app";
 
 const execAsync = promisify(exec);
 const SOX_PATH = "/opt/homebrew/bin/sox";
@@ -28,11 +32,16 @@ interface Preferences {
   fixText: boolean;
 }
 
+interface Transcription {
+  text: string;
+}
+
 /**
- * Clean up old recording files (older than 1 hour)
+ * Clean up old recording files that are not in history and older than 1 hour
  * @param tempDir Directory containing the recordings
+ * @param recordingsToKeep Set of recording paths to keep
  */
-async function cleanupOldRecordings(tempDir: string) {
+async function cleanupOldRecordings(tempDir: string, recordingsToKeep: Set<string>) {
   const oneHourAgo = Date.now() - 60 * 60 * 1000;
 
   try {
@@ -41,7 +50,12 @@ async function cleanupOldRecordings(tempDir: string) {
       const filePath = path.join(tempDir, file);
       const stats = fs.statSync(filePath);
 
-      if (stats.mtimeMs < oneHourAgo && file.startsWith("recording-") && file.endsWith(".wav")) {
+      if (
+        stats.mtimeMs < oneHourAgo &&
+        file.startsWith("recording-") &&
+        file.endsWith(".wav") &&
+        !recordingsToKeep.has(filePath)
+      ) {
         fs.unlinkSync(filePath);
         console.log(`Cleaned up old recording: ${file}`);
       }
@@ -66,13 +80,16 @@ export default async function Command() {
     const silenceTimeout = (await LocalStorage.getItem<string>(SILENCE_TIMEOUT_KEY)) || "2.0";
     const usePersonalDictionary = (await LocalStorage.getItem<string>(USE_PERSONAL_DICTIONARY_KEY)) === "true";
     muteDuringDictation = (await LocalStorage.getItem<string>(MUTE_DURING_DICTATION_KEY)) === "true";
-    console.log("Target language:", targetLanguage);
-    console.log("Whisper mode:", whisperMode);
-    console.log("Whisper model:", whisperModel);
-    console.log("Experimental single call mode:", experimentalSingleCall);
-    console.log("Silence timeout:", silenceTimeout);
-    console.log("Use personal dictionary:", usePersonalDictionary);
-    console.log("Mute during dictation:", muteDuringDictation);
+
+    console.log("Configuration:", {
+      targetLanguage,
+      whisperMode,
+      whisperModel,
+      experimentalSingleCall,
+      silenceTimeout,
+      usePersonalDictionary,
+      muteDuringDictation,
+    });
 
     // Check if local Whisper is available if needed
     if (whisperMode === "local") {
@@ -97,8 +114,9 @@ export default async function Command() {
       fs.mkdirSync(RECORDINGS_DIR, { recursive: true });
     }
 
-    // Clean up old recordings
-    await cleanupOldRecordings(RECORDINGS_DIR);
+    // Clean up old recordings that are not in history
+    const recordingsToKeep = await getRecordingsToKeep();
+    await cleanupOldRecordings(RECORDINGS_DIR, recordingsToKeep);
 
     const outputPath = path.join(RECORDINGS_DIR, `recording-${Date.now()}.wav`);
     console.log("Recording will be saved to:", outputPath);
@@ -128,132 +146,155 @@ export default async function Command() {
 
     // Process audio
     await showHUD("🔄 Converting speech to text...");
+    startPeriodicNotification("Converting speech to text");
     console.log("Processing audio file:", outputPath);
 
-    let transcription;
+    let transcription: Transcription;
+
     if (whisperMode === "local") {
       console.log("Transcribe using: Local Whisper");
-      const text = await transcribeAudio(
-        outputPath,
-        whisperModel,
-        targetLanguage === "auto" ? undefined : targetLanguage,
-      );
-      transcription = { text };
+      transcription = await measureTime("Local Whisper transcription", async () => {
+        const text = await transcribeAudio(
+          outputPath,
+          whisperModel,
+          targetLanguage === "auto" ? undefined : targetLanguage,
+        );
+        return { text };
+      });
     } else {
       if (experimentalSingleCall) {
         console.log("Transcribe using: OpenAI GPT-4o-audio-preview");
-        const audioBuffer = fs.readFileSync(outputPath);
-        const base64Audio = audioBuffer.toString("base64");
+        transcription = await measureTime("GPT-4o-audio-preview transcription", async () => {
+          const audioBuffer = fs.readFileSync(outputPath);
+          const base64Audio = audioBuffer.toString("base64");
 
-        const dictionaryPrompt = usePersonalDictionary ? await getPersonalDictionaryPrompt() : "";
+          const dictionaryPrompt = usePersonalDictionary ? await getPersonalDictionaryPrompt() : "";
 
-        const completion = await openai.chat.completions.create({
-          model: "gpt-4o-audio-preview",
-          modalities: ["text"],
-          messages: [
-            {
-              role: "user",
-              content: [
-                {
-                  type: "text",
-                  text: `Transcribe this audio${
-                    targetLanguage === "auto" ? " in the same language as the audio input" : ` in ${targetLanguage}`
-                  }. ${preferences.fixText ? "Fix any grammar or spelling issues while keeping the same language." : ""}${
-                    dictionaryPrompt ? "\n\n" + dictionaryPrompt : ""
-                  }`,
-                },
-                { type: "input_audio", input_audio: { data: base64Audio, format: "wav" } },
-              ],
-            },
-          ],
+          const completion = await openai.chat.completions.create({
+            model: "gpt-4o-audio-preview",
+            modalities: ["text"],
+            messages: [
+              {
+                role: "user",
+                content: [
+                  {
+                    type: "text",
+                    text: `Transcribe this audio${
+                      targetLanguage === "auto" ? " in the same language as the audio input" : ` in ${targetLanguage}`
+                    }. ${preferences.fixText ? "Fix any grammar or spelling issues while keeping the same language." : ""}${
+                      dictionaryPrompt ? "\n\n" + dictionaryPrompt : ""
+                    }`,
+                  },
+                  { type: "input_audio", input_audio: { data: base64Audio, format: "wav" } },
+                ],
+              },
+            ],
+          });
+
+          const result = completion.choices[0]?.message?.content;
+          if (typeof result === "string") {
+            return { text: result };
+          } else {
+            throw new Error("Unexpected response format from GPT-4o-audio-preview");
+          }
         });
-
-        const result = completion.choices[0]?.message?.content;
-        if (typeof result === "string") {
-          transcription = { text: result };
-        } else {
-          throw new Error("Unexpected response format from GPT-4o-audio-preview");
-        }
       } else {
         console.log("Transcribe using: OpenAI Whisper");
-        transcription = await openai.audio.transcriptions.create({
-          file: fs.createReadStream(outputPath),
-          model: "whisper-1",
-          language: targetLanguage === "auto" ? undefined : targetLanguage,
+        transcription = await measureTime("OpenAI Whisper transcription", async () => {
+          return await openai.audio.transcriptions.create({
+            file: fs.createReadStream(outputPath),
+            model: "whisper-1",
+            language: targetLanguage === "auto" ? undefined : targetLanguage,
+          });
         });
 
         // If using personal dictionary, apply corrections through GPT
         if (usePersonalDictionary) {
-          const dictionaryPrompt = await getPersonalDictionaryPrompt();
-          if (dictionaryPrompt) {
-            console.log("Applying personal dictionary corrections");
-            const completion = await openai.chat.completions.create({
-              model: getLLMModel(),
-              messages: [
-                {
-                  role: "system",
-                  content:
-                    "You are a text correction assistant. Your task is to apply personal dictionary corrections to the transcribed text while preserving the original meaning and formatting.",
-                },
-                {
-                  role: "user",
-                  content: `Please correct this transcribed text according to the personal dictionary:\n\n${dictionaryPrompt}\n\nText to correct:\n"${transcription.text}"\n\nRespond ONLY with the corrected text.`,
-                },
-              ],
-              temperature: 0.3,
-            });
+          console.log("Applying personal dictionary corrections");
+          transcription = await measureTime("Personal dictionary corrections", async () => {
+            const dictionaryPrompt = await getPersonalDictionaryPrompt();
+            if (dictionaryPrompt) {
+              const completion = await openai.chat.completions.create({
+                model: getLLMModel(),
+                messages: [
+                  {
+                    role: "system",
+                    content:
+                      "You are a text correction assistant. Your task is to apply personal dictionary corrections to the transcribed text while preserving the original meaning and formatting.",
+                  },
+                  {
+                    role: "user",
+                    content: `Please correct this transcribed text according to the personal dictionary:\n\n${dictionaryPrompt}\n\nText to correct:\n"${transcription.text}"\n\nRespond ONLY with the corrected text.`,
+                  },
+                ],
+                temperature: 0.3,
+              });
 
-            transcription.text = completion.choices[0].message.content?.trim() || transcription.text;
-          }
+              return { text: completion.choices[0].message.content?.trim() || transcription.text };
+            }
+            return transcription;
+          });
         }
       }
     }
+
+    stopPeriodicNotification();
 
     // Clean up the transcription if needed
     let finalText = transcription.text;
     if (preferences.fixText && !experimentalSingleCall) {
       await showHUD("✍️ Improving text...");
-      finalText = await cleanText(finalText, openai);
+      startPeriodicNotification("Improving text");
+      finalText = await measureTime("Text improvement", async () => {
+        return await cleanText(finalText, openai);
+      });
+      stopPeriodicNotification();
     }
 
-    // Clean up temporary file
-    fs.unlinkSync(outputPath);
-    console.log("Temporary file cleaned up");
+    // Add to history
+    await addTranscriptionToHistory(finalText, targetLanguage, outputPath, {
+      mode: experimentalSingleCall ? "gpt4" : whisperMode === "local" ? "local" : "online",
+      model: whisperMode === "local" ? whisperModel : undefined,
+      textCorrectionEnabled: preferences.fixText,
+      targetLanguage,
+      activeApp: await getActiveApplication(),
+    });
 
     // Translate if needed
     if (targetLanguage !== "auto" && !experimentalSingleCall) {
       await showHUD(`🌐 Translating to ${targetLanguage}...`);
+      startPeriodicNotification(`Translating to ${targetLanguage}`);
       console.log("Translating to:", targetLanguage);
 
-      const completion = await openai.chat.completions.create({
-        model: getLLMModel(),
-        messages: [
-          {
-            role: "system",
-            content: `You are a translator. Translate the following text to the specified language: ${targetLanguage}. Keep the tone and style of the original text.`,
-          },
-          {
-            role: "user",
-            content: finalText,
-          },
-        ],
-        temperature: 0.3,
+      finalText = await measureTime("Translation", async () => {
+        const completion = await openai.chat.completions.create({
+          model: getLLMModel(),
+          messages: [
+            {
+              role: "system",
+              content: `You are a translator. Translate the following text to the specified language: ${targetLanguage}. Keep the tone and style of the original text.`,
+            },
+            {
+              role: "user",
+              content: finalText,
+            },
+          ],
+          temperature: 0.3,
+        });
+
+        return completion.choices[0].message.content || finalText;
       });
 
-      const translatedText = completion.choices[0].message.content || "";
-      if (translatedText) {
-        await Clipboard.paste(translatedText);
-        await showHUD("✅ Translation completed and pasted!");
-        console.log("Translation pasted:", translatedText);
-      }
-    } else {
-      await Clipboard.paste(finalText);
-      await showHUD("✅ Transcription completed and pasted!");
-      console.log("Transcription pasted:", finalText);
+      stopPeriodicNotification();
     }
+
+    await Clipboard.paste(finalText);
+    await showHUD("✅ Transcription completed and pasted!");
+    console.log("Transcription pasted:", finalText);
   } catch (error) {
     console.error("Error during dictation:", error);
     await showHUD("❌ Error during dictation");
+    stopPeriodicNotification();
 
     // Restore original audio state in case of error
     if (muteDuringDictation) {

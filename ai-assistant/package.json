@@ -80,6 +80,13 @@
       "description": "Add the selected word to your personal dictionary with its correction",
       "mode": "view",
       "icon": "command-icon-models.png"
+    },
+    {
+      "name": "dictate-history",
+      "title": "View Dictation History",
+      "description": "View and copy previous dictation transcriptions",
+      "mode": "view",
+      "icon": "command-icon-dictate.png"
     }
   ],
   "preferences": [
@@ -96,6 +103,7 @@
     "@raycast/api": "^1.89.1",
     "@raycast/utils": "^1.17.0",
     "cheerio": "^1.0.0",
+    "date-fns": "^3.3.1",
     "node-fetch": "^2.7.0",
     "openai": "^4.28.0"
   },
