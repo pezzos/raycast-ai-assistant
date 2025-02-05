@@ -1,5 +1,18 @@
 # AI Assistant Changelog
 
+## [1.1.1] - 2024-03-23
+
+### Added
+- New command "Manage Personal Dictionary" for dictionary management
+- New command "Add Selected Word to Dictionay" for personal dictionary
+- Improved documentation with detailed settings descriptions
+
+### Changed
+- Enhanced README with comprehensive feature descriptions
+- Updated privacy section with more detailed information
+- Improved credits section
+- Added proper MIT license file
+
 ## [1.1.0] - 2024-03-22
 
 ### Added

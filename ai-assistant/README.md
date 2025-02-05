@@ -216,12 +216,12 @@ Feel free to submit issues and enhancement requests!
 
 ## License
 
-MIT License - see LICENSE file for details
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## Credits
 
 - OpenAI for their amazing APIs
-- Raycast team for the excellent extension platform
+- Raycast team for the excellent extension platform and Raycast I use every day
 - [Whisper.cpp](https://github.com/ggerganov/whisper.cpp) for local speech recognition
 - All the [contributors](https://github.com/pezzos/raycast-ai-assistant/graphs/contributors)
 
