@@ -1,15 +1,14 @@
-import { Detail, showToast, Toast, getPreferenceValues } from "@raycast/api";
+import { Detail, showToast, Toast, getPreferenceValues, LocalStorage } from "@raycast/api";
 import OpenAI from "openai";
 import { execSync } from "child_process";
 import fetch from "node-fetch";
 import * as cheerio from "cheerio";
 import { useState, useEffect } from "react";
 import { getLLMModel, getSelectedText } from "./utils/common";
+import { PRIMARY_LANG_KEY, SHOW_EXPLORE_MORE_KEY } from "./settings";
 
 interface Preferences {
   openaiApiKey: string;
-  primaryLang: string;
-  showExploreMore: boolean;
 }
 
 interface PageSummary {
@@ -98,6 +97,60 @@ const sectionTitles: { [key: string]: { [key: string]: string } } = {
     keyHighlights: "Key Highlights",
     exploreMore: "Explore More",
     source: "Source",
+  },
+  es: {
+    summary: "Resumen",
+    keyHighlights: "Puntos Clave",
+    exploreMore: "Para explorar más",
+    source: "Fuente",
+  },
+  de: {
+    summary: "Zusammenfassung",
+    keyHighlights: "Wichtige Punkte",
+    exploreMore: "Zum Weiterlesen",
+    source: "Quelle",
+  },
+  it: {
+    summary: "Riepilogo",
+    keyHighlights: "Punti Chiave",
+    exploreMore: "Per approfondire",
+    source: "Fonte",
+  },
+  pt: {
+    summary: "Resumo",
+    keyHighlights: "Pontos-Chave",
+    exploreMore: "Para explorar mais",
+    source: "Fonte",
+  },
+  nl: {
+    summary: "Samenvatting",
+    keyHighlights: "Belangrijkste Punten",
+    exploreMore: "Om verder te verkennen",
+    source: "Bron",
+  },
+  ru: {
+    summary: "Краткое содержание",
+    keyHighlights: "Ключевые моменты",
+    exploreMore: "Для дальнейшего изучения",
+    source: "Источник",
+  },
+  zh: {
+    summary: "摘要",
+    keyHighlights: "要点",
+    exploreMore: "深入探索",
+    source: "来源",
+  },
+  ja: {
+    summary: "要約",
+    keyHighlights: "重要なポイント",
+    exploreMore: "さらに探る",
+    source: "ソース",
+  },
+  ko: {
+    summary: "요약",
+    keyHighlights: "주요 포인트",
+    exploreMore: "더 알아보기",
+    source: "출처",
   },
 };
 
@@ -278,17 +331,40 @@ async function summarizeContent(
   isSelectedText: boolean,
   showExploreMore: boolean,
 ): Promise<string> {
-  const systemPrompt = isSelectedText
-    ? `You are a text summarization assistant. Provide the requested information in ${language} in the exact format specified, without any additional text or explanations.`
-    : `You are a webpage summarization assistant. Provide the requested information in ${language} in the exact format specified, without any additional text or explanations.`;
+  const languageNames = {
+    fr: "French",
+    en: "English",
+    es: "Spanish",
+    de: "German",
+    it: "Italian",
+    pt: "Portuguese",
+    nl: "Dutch",
+    ru: "Russian",
+    zh: "Chinese",
+    ja: "Japanese",
+    ko: "Korean",
+  };
 
-  const userPrompt = `Please analyze this ${isSelectedText ? "text" : "webpage content"} and provide in ${language}:
+  const fullLanguageName = languageNames[language as keyof typeof languageNames] || language;
+
+  const systemPrompt = isSelectedText
+    ? `You are a text summarization assistant. You MUST write EVERYTHING in ${fullLanguageName} ONLY. This includes the topic, summary, highlights, and explore more sections. Do not use any other language. Even if the input is in another language, your output must be in ${fullLanguageName} only.`
+    : `You are a webpage summarization assistant. You MUST write EVERYTHING in ${fullLanguageName} ONLY. This includes the topic, summary, highlights, and explore more sections. Do not use any other language. Even if the input is in another language, your output must be in ${fullLanguageName} only.`;
+
+  console.log("=== OpenAI Request ===");
+  console.log("Language:", fullLanguageName);
+  console.log("Show Explore More:", showExploreMore);
+  console.log("\nSystem Prompt:", systemPrompt);
+
+  const userPrompt = `Please analyze this ${isSelectedText ? "text" : "webpage content"} and provide a complete summary in ${fullLanguageName} ONLY. Remember: ALL your output MUST be in ${fullLanguageName}, regardless of the input language.
+
+Required sections (ALL IN ${fullLanguageName.toUpperCase()}):
 1. A concise summary in 2-3 sentences maximum
 2. The main topic or category (one word or short phrase)
 3. Key highlights (2-3 bullet points maximum), use emojis to make it more interesting
 ${showExploreMore ? `4. Suggest 2-3 related resources or topics to explore further. ${!isSelectedText ? "For each suggestion, include a URL if relevant." : ""}` : ""}
 
-Format the response EXACTLY like this (keep the empty lines between sections):
+Format the response EXACTLY like this (keep the empty lines between sections, EVERYTHING IN ${fullLanguageName.toUpperCase()}):
 TOPIC: <topic>
 
 SUMMARY: <your 2-3 sentence summary>
@@ -308,6 +384,8 @@ EXPLORE MORE:
 }
 
 Content: "${content}"`;
+
+  console.log("\nUser Prompt:", userPrompt);
 
   const completion = await openai.chat.completions.create({
     model: getLLMModel(),
@@ -355,11 +433,14 @@ function parseOpenAIResponse(response: string, url: string): PageSummary {
       currentSection = "highlights";
     } else if (trimmedLine === "EXPLORE MORE:") {
       currentSection = "resources";
-    } else if (trimmedLine.startsWith("•")) {
-      if (currentSection === "highlights") {
-        summary.highlights.push(trimmedLine);
-      } else if (currentSection === "resources") {
-        summary.resources.push(trimmedLine);
+    } else if (trimmedLine.startsWith("•") || trimmedLine.startsWith("-") || trimmedLine.startsWith("*")) {
+      const content = trimmedLine.replace(/^[•\-*]\s*/, "").trim();
+      if (content) {
+        if (currentSection === "highlights") {
+          summary.highlights.push(trimmedLine);
+        } else if (currentSection === "resources") {
+          summary.resources.push(trimmedLine);
+        }
       }
     }
   }
@@ -371,12 +452,36 @@ export default function Command() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [summary, setSummary] = useState<PageSummary | null>(null);
+  const [primaryLang, setPrimaryLang] = useState<string>("");
+  const [showExploreMore, setShowExploreMore] = useState<boolean>(true);
   const preferences = getPreferenceValues<Preferences>();
+  const [preferencesLoaded, setPreferencesLoaded] = useState(false);
+
+  useEffect(() => {
+    // Load preferences from LocalStorage
+    const loadPreferences = async () => {
+      const savedPrimaryLang = await LocalStorage.getItem<string>(PRIMARY_LANG_KEY);
+      const savedShowExploreMore = await LocalStorage.getItem<string>(SHOW_EXPLORE_MORE_KEY);
+
+      if (savedPrimaryLang) setPrimaryLang(savedPrimaryLang);
+      if (savedShowExploreMore !== null) setShowExploreMore(savedShowExploreMore === "true");
+      setPreferencesLoaded(true);
+
+      // Log initial configuration
+      console.log("=== Configuration ===");
+      console.log("Primary Language:", savedPrimaryLang);
+      console.log("Show Explore More:", savedShowExploreMore === "true");
+    };
+
+    loadPreferences();
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
 
     async function fetchSummary() {
+      if (!preferencesLoaded || !primaryLang) return;
+
       try {
         const openai = new OpenAI({
           apiKey: preferences.openaiApiKey,
@@ -391,13 +496,19 @@ export default function Command() {
         if (!isMounted) return;
         await showToast({ style: Toast.Style.Animated, title: "Generating summary..." });
         const isSelectedText = source === "selection";
+
         const summaryText = await summarizeContent(
           content,
           openai,
-          preferences.primaryLang,
+          primaryLang,
           isSelectedText,
-          preferences.showExploreMore,
+          showExploreMore,
         );
+
+        // Log the raw response
+        console.log("=== OpenAI Response ===");
+        console.log(summaryText);
+
         const parsedSummary = parseOpenAIResponse(summaryText, source);
 
         if (isMounted) {
@@ -426,33 +537,35 @@ export default function Command() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [preferencesLoaded, primaryLang]);
 
   // Prepare markdown content with proper formatting and translated titles
   const markdown = summary
     ? `# ${summary.topic}
 
-## ${sectionTitles[preferences.primaryLang]?.summary || "Summary"}
+## ${sectionTitles[primaryLang]?.summary || "Summary"}
 ${summary.summary}
 
-## ${sectionTitles[preferences.primaryLang]?.keyHighlights || "Key Highlights"}
-
+## ${sectionTitles[primaryLang]?.keyHighlights || "Key Highlights"}
 ${summary.highlights.join("\n\n")}
 
 ${
-  preferences.showExploreMore
-    ? `## ${sectionTitles[preferences.primaryLang]?.exploreMore || "Explore More"}
-
+  showExploreMore && summary.resources.length > 0
+    ? `## ${sectionTitles[primaryLang]?.exploreMore || "Explore More"}
 ${summary.resources.join("\n\n")}`
     : ""
 }
 
 ---
-${sectionTitles[preferences.primaryLang]?.source || "Source"}: ${summary.url}`
+${sectionTitles[primaryLang]?.source || "Source"}: ${summary.url}`
     : "";
 
   if (error) {
     return <Detail markdown={`# Error\n\n${error}`} />;
+  }
+
+  if (!preferencesLoaded || !primaryLang) {
+    return <Detail isLoading={true} markdown="" />;
   }
 
   return <Detail isLoading={isLoading} markdown={markdown} />;
