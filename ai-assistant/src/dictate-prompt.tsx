@@ -4,12 +4,7 @@ import fs from "fs";
 import path from "path";
 import { exec } from "child_process";
 import { promisify } from "util";
-import {
-  cleanText,
-  getLLMModel,
-  getSelectedText,
-  replaceSelectedText
-} from "./utils/common";
+import { cleanText, getLLMModel, getSelectedText, replaceSelectedText } from "./utils/common";
 import {
   SILENCE_TIMEOUT_KEY,
   MUTE_DURING_DICTATION_KEY,
@@ -52,7 +47,12 @@ async function cleanupOldRecordings(tempDir: string, recordingsToKeep: Set<strin
       const filePath = path.join(tempDir, file);
       const stats = fs.statSync(filePath);
 
-      if (stats.mtimeMs < oneHourAgo && file.startsWith("recording-") && file.endsWith(".wav") && !recordingsToKeep.has(filePath)) {
+      if (
+        stats.mtimeMs < oneHourAgo &&
+        file.startsWith("recording-") &&
+        file.endsWith(".wav") &&
+        !recordingsToKeep.has(filePath)
+      ) {
         fs.unlinkSync(filePath);
         console.log(`Cleaned up old recording: ${file}`);
       }
@@ -76,7 +76,7 @@ async function executePrompt(
   selectedText: string | null,
   openai: OpenAI,
   usePersonalDictionary: boolean,
-  fixText: boolean
+  fixText: boolean,
 ): Promise<string> {
   console.log("Executing prompt with:", { prompt, hasSelectedText: !!selectedText });
 
