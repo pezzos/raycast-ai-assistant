@@ -27,7 +27,7 @@ let notificationInterval: NodeJS.Timeout | null = null;
  * @param message Base message to show
  * @param intervalMs Interval between notifications in milliseconds
  */
-export function startPeriodicNotification(message: string, intervalMs: number = 3000) {
+export function startPeriodicNotification(message: string, intervalMs: number = 1000) {
   if (notificationInterval) {
     clearInterval(notificationInterval);
   }

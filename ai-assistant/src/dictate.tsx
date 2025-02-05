@@ -12,6 +12,7 @@ import {
   SILENCE_TIMEOUT_KEY,
   USE_PERSONAL_DICTIONARY_KEY,
   MUTE_DURING_DICTATION_KEY,
+  FIX_TEXT_KEY,
 } from "./settings";
 import { cleanText, getLLMModel } from "./utils/common";
 import { isWhisperInstalled, isModelDownloaded, transcribeAudio } from "./utils/whisper-local";
@@ -66,29 +67,45 @@ async function cleanupOldRecordings(tempDir: string, recordingsToKeep: Set<strin
 }
 
 export default async function Command() {
-  console.log("Starting dictation command...");
+  console.log("🎙️ Starting dictation...");
 
   let originalMuteState = false;
   let muteDuringDictation = false;
 
   try {
     const preferences = getPreferenceValues<Preferences>();
-    const targetLanguage = (await LocalStorage.getItem<string>(DICTATE_TARGET_LANG_KEY)) || "auto";
-    const whisperMode = (await LocalStorage.getItem<string>(WHISPER_MODE_KEY)) || "online";
-    const whisperModel = (await LocalStorage.getItem<string>(WHISPER_MODEL_KEY)) || "base";
-    const experimentalSingleCall = (await LocalStorage.getItem<string>(EXPERIMENTAL_SINGLE_CALL_KEY)) === "true";
-    const silenceTimeout = (await LocalStorage.getItem<string>(SILENCE_TIMEOUT_KEY)) || "2.0";
-    const usePersonalDictionary = (await LocalStorage.getItem<string>(USE_PERSONAL_DICTIONARY_KEY)) === "true";
-    muteDuringDictation = (await LocalStorage.getItem<string>(MUTE_DURING_DICTATION_KEY)) === "true";
 
-    console.log("Configuration:", {
+    // Load settings from local storage
+    const savedFixText = await LocalStorage.getItem<string>(FIX_TEXT_KEY);
+    preferences.fixText = savedFixText === "true";
+
+    const savedTargetLang = await LocalStorage.getItem<string>(DICTATE_TARGET_LANG_KEY);
+    const targetLanguage = savedTargetLang || "auto";
+
+    const savedWhisperMode = await LocalStorage.getItem<string>(WHISPER_MODE_KEY);
+    const whisperMode = savedWhisperMode || "online";
+
+    const savedWhisperModel = await LocalStorage.getItem<string>(WHISPER_MODEL_KEY);
+    const whisperModel = savedWhisperModel || "base";
+
+    const savedExperimentalSingleCall = await LocalStorage.getItem<string>(EXPERIMENTAL_SINGLE_CALL_KEY);
+    const experimentalSingleCall = savedExperimentalSingleCall === "true";
+
+    const savedSilenceTimeout = await LocalStorage.getItem<string>(SILENCE_TIMEOUT_KEY);
+    const silenceTimeout = savedSilenceTimeout || "2.0";
+
+    const savedUsePersonalDictionary = await LocalStorage.getItem<string>(USE_PERSONAL_DICTIONARY_KEY);
+    const usePersonalDictionary = savedUsePersonalDictionary === "true";
+
+    const savedMuteDuringDictation = await LocalStorage.getItem<string>(MUTE_DURING_DICTATION_KEY);
+    muteDuringDictation = savedMuteDuringDictation === "true";
+
+    console.log("⚙️ Configuration:", {
+      mode: whisperMode,
+      model: whisperMode === "local" ? whisperModel : experimentalSingleCall ? "gpt-4o-audio-preview" : "whisper-1",
       targetLanguage,
-      whisperMode,
-      whisperModel,
-      experimentalSingleCall,
-      silenceTimeout,
+      fixText: preferences.fixText,
       usePersonalDictionary,
-      muteDuringDictation,
     });
 
     // Check if local Whisper is available if needed
@@ -119,7 +136,6 @@ export default async function Command() {
     await cleanupOldRecordings(RECORDINGS_DIR, recordingsToKeep);
 
     const outputPath = path.join(RECORDINGS_DIR, `recording-${Date.now()}.wav`);
-    console.log("Recording will be saved to:", outputPath);
 
     // Handle audio muting if enabled
     if (muteDuringDictation) {
@@ -129,15 +145,14 @@ export default async function Command() {
 
     // Start recording
     await showHUD("🎙️ Recording... (will stop after 2s of silence)");
-    console.log("Starting recording...");
 
     const command = `
       export PATH="/opt/homebrew/bin:$PATH";
-      "${SOX_PATH}" -d "${outputPath}" silence 1 0.1 2% 1 ${silenceTimeout} 2%
+      "${SOX_PATH}" -d "${outputPath}" silence 1 0.1 0% 1 ${silenceTimeout} 2%
     `;
 
     await execAsync(command, { shell: "/bin/zsh" });
-    console.log("Recording completed");
+    console.log("✅ Recording completed");
 
     // Restore original audio state if needed
     if (muteDuringDictation) {
@@ -146,13 +161,11 @@ export default async function Command() {
 
     // Process audio
     await showHUD("🔄 Converting speech to text...");
-    startPeriodicNotification("🔄 Still working on it...");
-    console.log("Processing audio file:", outputPath);
+    startPeriodicNotification("🔄 Still working on it");
 
     let transcription: Transcription;
 
     if (whisperMode === "local") {
-      console.log("Transcribe using: Local Whisper");
       transcription = await measureTime("Local Whisper transcription", async () => {
         const text = await transcribeAudio(
           outputPath,
@@ -163,7 +176,6 @@ export default async function Command() {
       });
     } else {
       if (experimentalSingleCall) {
-        console.log("Transcribe using: OpenAI GPT-4o-audio-preview");
         transcription = await measureTime("GPT-4o-audio-preview transcription", async () => {
           const audioBuffer = fs.readFileSync(outputPath);
           const base64Audio = audioBuffer.toString("base64");
@@ -199,7 +211,6 @@ export default async function Command() {
           }
         });
       } else {
-        console.log("Transcribe using: OpenAI Whisper");
         transcription = await measureTime("OpenAI Whisper transcription", async () => {
           return await openai.audio.transcriptions.create({
             file: fs.createReadStream(outputPath),
@@ -207,35 +218,34 @@ export default async function Command() {
             language: targetLanguage === "auto" ? undefined : targetLanguage,
           });
         });
-
-        // If using personal dictionary, apply corrections through GPT
-        if (usePersonalDictionary) {
-          console.log("Applying personal dictionary corrections");
-          transcription = await measureTime("Personal dictionary corrections", async () => {
-            const dictionaryPrompt = await getPersonalDictionaryPrompt();
-            if (dictionaryPrompt) {
-              const completion = await openai.chat.completions.create({
-                model: getLLMModel(),
-                messages: [
-                  {
-                    role: "system",
-                    content:
-                      "You are a text correction assistant. Your task is to apply personal dictionary corrections to the transcribed text while preserving the original meaning and formatting.",
-                  },
-                  {
-                    role: "user",
-                    content: `Please correct this transcribed text according to the personal dictionary:\n\n${dictionaryPrompt}\n\nText to correct:\n"${transcription.text}"\n\nRespond ONLY with the corrected text.`,
-                  },
-                ],
-                temperature: 0.3,
-              });
-
-              return { text: completion.choices[0].message.content?.trim() || transcription.text };
-            }
-            return transcription;
-          });
-        }
       }
+    }
+
+    // Apply personal dictionary corrections if enabled, regardless of transcription mode
+    if (usePersonalDictionary && !experimentalSingleCall) {
+      transcription = await measureTime("Personal dictionary corrections", async () => {
+        const dictionaryPrompt = await getPersonalDictionaryPrompt();
+        if (dictionaryPrompt) {
+          const completion = await openai.chat.completions.create({
+            model: getLLMModel(),
+            messages: [
+              {
+                role: "system",
+                content:
+                  "You are a text correction assistant. Your task is to apply personal dictionary corrections to the transcribed text while preserving the original meaning and formatting.",
+              },
+              {
+                role: "user",
+                content: `Please correct this transcribed text according to the personal dictionary:\n\n${dictionaryPrompt}\n\nText to correct:\n"${transcription.text}"\n\nRespond ONLY with the corrected text.`,
+              },
+            ],
+            temperature: 0.3,
+          });
+
+          return { text: completion.choices[0].message.content?.trim() || transcription.text };
+        }
+        return transcription;
+      });
     }
 
     stopPeriodicNotification();
@@ -264,7 +274,6 @@ export default async function Command() {
     if (targetLanguage !== "auto" && !experimentalSingleCall) {
       await showHUD(`🌐 Translating to ${targetLanguage}...`);
       startPeriodicNotification(`Translating to ${targetLanguage}`);
-      console.log("Translating to:", targetLanguage);
 
       finalText = await measureTime("Translation", async () => {
         const completion = await openai.chat.completions.create({
@@ -290,9 +299,9 @@ export default async function Command() {
 
     await Clipboard.paste(finalText);
     await showHUD("✅ Transcription completed and pasted!");
-    console.log("Transcription pasted:", finalText);
+    console.log("✨ Final result:", finalText);
   } catch (error) {
-    console.error("Error during dictation:", error);
+    console.error("❌ Error during dictation:", error);
     await showHUD("❌ Error during dictation");
     stopPeriodicNotification();
 
