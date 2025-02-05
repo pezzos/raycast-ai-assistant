@@ -1,5 +1,6 @@
 import { LocalStorage } from "@raycast/api";
 import fs from "fs";
+import path from "path";
 
 export interface TranscriptionRecord {
   id: string;
@@ -21,7 +22,7 @@ const HISTORY_KEY = "transcription_history";
 const MAX_HISTORY_ITEMS = 100;
 
 /**
- * Adds a new transcription to the history
+ * Adds a new transcription to the history without deleting the file
  */
 export async function addTranscriptionToHistory(
   text: string,
@@ -29,6 +30,13 @@ export async function addTranscriptionToHistory(
   recordingPath: string,
   details: TranscriptionRecord["transcriptionDetails"],
 ): Promise<void> {
+  console.log("Adding transcription to history:", {
+    textLength: text.length,
+    language,
+    recordingPath,
+    details,
+  });
+
   const history = await getTranscriptionHistory();
 
   const newRecord: TranscriptionRecord = {
@@ -49,16 +57,6 @@ export async function addTranscriptionToHistory(
   }
 
   await LocalStorage.setItem(HISTORY_KEY, JSON.stringify(history));
-
-  // Clean up the recording file since transcription was successful
-  try {
-    if (fs.existsSync(recordingPath)) {
-      fs.unlinkSync(recordingPath);
-      console.log("Cleaned up recording after successful transcription:", recordingPath);
-    }
-  } catch (error) {
-    console.error("Error cleaning up recording file:", error);
-  }
 }
 
 /**
@@ -84,11 +82,50 @@ export async function getLastRecordingPath(): Promise<string | null> {
 }
 
 /**
- * Gets recordings that should be kept (untranscribed ones)
+ * Gets recordings that should be kept (untranscribed ones or recent ones)
  */
 export async function getRecordingsToKeep(): Promise<Set<string>> {
   const history = await getTranscriptionHistory();
-  return new Set(history.filter((record) => !record.transcribed).map((record) => record.recordingPath));
+  const oneHourAgo = Date.now() - 60 * 60 * 1000;
+
+  return new Set(
+    history
+      .filter((record) => !record.transcribed || record.timestamp > oneHourAgo)
+      .map((record) => record.recordingPath),
+  );
+}
+
+/**
+ * Clean up old recordings (older than 1 hour and successfully transcribed)
+ */
+export async function cleanupOldRecordings(directory: string): Promise<void> {
+  console.log("Starting cleanup of old recordings in:", directory);
+  const recordingsToKeep = await getRecordingsToKeep();
+  const oneHourAgo = Date.now() - 60 * 60 * 1000;
+
+  try {
+    const files = fs.readdirSync(directory);
+    for (const file of files) {
+      const filePath = path.join(directory, file);
+      const stats = fs.statSync(filePath);
+
+      if (
+        stats.mtimeMs < oneHourAgo &&
+        file.startsWith("recording-") &&
+        file.endsWith(".wav") &&
+        !recordingsToKeep.has(filePath)
+      ) {
+        try {
+          fs.unlinkSync(filePath);
+          console.log("Cleaned up old recording:", filePath);
+        } catch (error) {
+          console.error("Error deleting file:", filePath, error);
+        }
+      }
+    }
+  } catch (error) {
+    console.error("Error during recordings cleanup:", error);
+  }
 }
 
 /**
