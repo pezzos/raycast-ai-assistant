@@ -497,13 +497,7 @@ export default function Command() {
         await showToast({ style: Toast.Style.Animated, title: "Generating summary..." });
         const isSelectedText = source === "selection";
 
-        const summaryText = await summarizeContent(
-          content,
-          openai,
-          primaryLang,
-          isSelectedText,
-          showExploreMore,
-        );
+        const summaryText = await summarizeContent(content, openai, primaryLang, isSelectedText, showExploreMore);
 
         // Log the raw response
         console.log("=== OpenAI Response ===");
