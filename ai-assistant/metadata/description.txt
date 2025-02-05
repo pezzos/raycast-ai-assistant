@@ -21,6 +21,18 @@ A powerful collection of AI-powered tools to enhance your productivity, featurin
 • Active application detection for better context
 • Transcription history with metadata
 • Personal dictionary integration
+• Complete history management system
+• Metadata tracking and search capabilities
+
+📜 Transcription History
+• Complete history of all dictations
+• Search functionality
+• Detailed metadata for each transcription
+• Audio recording replay
+• Automatic file cleanup
+• Export and copy capabilities
+• History management interface
+• Date and application filtering
 
 🤖 Dictate Prompt Everywhere
 • Dictate prompts to generate or improve content

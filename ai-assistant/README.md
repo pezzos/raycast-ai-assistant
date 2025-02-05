@@ -102,6 +102,20 @@ Customize your dictation experience by adding your own words, names, and phrases
   2. Enter the word to replace and its replacement
   3. Your personal dictionary will be automatically applied during dictation
 
+📜 Transcription History
+Keep track of all your dictations and manage your transcription history efficiently.
+- **Features:**
+  - View complete transcription history
+  - Search through past transcriptions
+  - Retranscribe original audio recordings if needed
+  - Copy previous transcriptions
+  - Automatic cleanup of old recordings
+- **Usage:**
+  1. Trigger the command "**View Dictation History**" through Raycast
+  2. Browse or search through your transcription history
+  3. Select an entry to view or use filters to find specific transcriptions
+  5. Press Enter to add it to the clipboard and paste it to the active application or use the CMD+K shortcut to use it differently
+
 ## Prerequisites
 
 - macOS 12 or later
@@ -110,7 +124,7 @@ Customize your dictation experience by adding your own words, names, and phrases
 - Sox (for voice recording)
   ```bash
   # Install on macOS
-  brew install sox
+  brew install sox ffmpeg ffprobe
   ```
 
 ## Installation
@@ -118,7 +132,7 @@ Customize your dictation experience by adding your own words, names, and phrases
 1. Install the extension from the Raycast Store
 2. Configure your OpenAI API key in Raycast preferences
 3. Select your primary and secondary languages
-4. Optional: Install Sox for voice recording features (`brew install sox`)
+4. Optional: Install Sox for voice recording features (`brew install sox ffmpeg ffprobe`)
 
 ## Configuration
 
@@ -142,7 +156,7 @@ Customize your dictation experience by adding your own words, names, and phrases
 ##### Language Settings
 - **Primary Language**: Your main language for translations and AI interactions
 - **Secondary Language**: Your alternate language for translations
-- **Default Output Language**: Language used as output after speech recognition (can be set to "Keep the same language as the input")
+- **Default Output Language**: Language used as output after speech recognition if you want an automatic translation (can be set to "Keep the same language as the input")
 
 ##### Speech Recognition Settings
 - **Whisper Mode**: Choose between online (OpenAI API) or local processing
@@ -248,10 +262,10 @@ Each directory contains its own README with detailed information about its purpo
 - [ ] Improve the translation feature to translate entire pages and non-edittable text
 - [ ] Add fancier icons for the new commands
 - [ ] Add support for more AI models (Claude, Gemini, etc.)
-- [ ] Improve UI to describe the settings in more detail in Raycast preferences with user-friendly descriptions and use cases
-- [x] Add README.md in every directories
-- [x] Add personal dictionary with custom words and command to add replacement words
 - [ ] Add support for more languages
 - [ ] Improve error handling and recovery
 - [ ] Add unit tests and integration tests
 - [ ] Improve caching mechanism
+- [x] Improve UI to describe the settings in more detail in Raycast preferences with user-friendly descriptions and use cases
+- [x] Add README.md in every directories
+- [x] Add personal dictionary with custom words and command to add replacement words

@@ -1,5 +1,21 @@
 # AI Assistant Changelog
 
+## [1.1.3] - 2024-03-25
+
+### Added
+- New command "View Dictation History" for managing transcription history
+- Complete transcription history management system
+- Metadata tracking for all transcriptions
+- Audio recording replay functionality
+- Search and filter capabilities for transcription history
+- Automatic cleanup system for old recordings
+
+### Improved
+- Enhanced dictation feature with history tracking
+- Better file management for recordings
+- More detailed metadata collection during dictation
+- Updated documentation for all history-related features
+
 ## [1.1.2] - 2024-03-24
 
 ### Added

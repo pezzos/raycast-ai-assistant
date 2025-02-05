@@ -161,7 +161,7 @@ export default async function Command() {
 
     // Process audio
     await showHUD("🔄 Converting speech to text...");
-    startPeriodicNotification("🔄 Still working on it");
+    startPeriodicNotification("🔄 Converting speech to text");
 
     let transcription: Transcription;
 
@@ -254,7 +254,7 @@ export default async function Command() {
     let finalText = transcription.text;
     if (preferences.fixText && !experimentalSingleCall) {
       await showHUD("✍️ Improving text...");
-      startPeriodicNotification("Improving text");
+      startPeriodicNotification("✍️ Improving text");
       finalText = await measureTime("Text improvement", async () => {
         return await cleanText(finalText, openai);
       });
