@@ -41,7 +41,7 @@ export default async function Command() {
     log("Selected text", { length: selectedText?.length, text: selectedText });
 
     if (!selectedText || selectedText.trim().length === 0) {
-      await showHUD("❌ No text selected - Please select some text to translate");
+      await showHUD("ℹ️ Please select some text to translate");
       return;
     }
 
