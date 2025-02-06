@@ -6,14 +6,12 @@ import { validateSelectedText } from "./utils/text-validator";
  */
 export default async function Command() {
   try {
-    console.log("Starting test command...");
-
     const result = await validateSelectedText();
     console.log("Validation result:", result);
 
     const message = result.isEditable
       ? "✅ Texte éditable"
-      : `❌ Pas éditable${result.reason ? ` (${result.reason})` : ''}`;
+      : `❌ Pas éditable${result.reason ? ` (${result.reason})` : ""}`;
 
     await showHUD(message);
   } catch (error) {
