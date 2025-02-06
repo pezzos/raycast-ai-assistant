@@ -260,6 +260,11 @@ Each directory contains its own README with detailed information about its purpo
 
 ## TODO
 - [ ] Improve the translation feature to translate entire pages and non-edittable text
+- [ ] Use the text-validator feature to improve the dictate prompt feature
+- [ ] Improve performance
+- [ ] Fix too long dictation failing if the recorded audio is too large
+- [ ] Fix experimental single call mode translating the dictation
+- [ ] Set a timeout for the transcription to avoid being blocked by a long transcription
 - [ ] Add fancier icons for the new commands
 - [ ] Add support for more AI models (Claude, Gemini, etc.)
 - [ ] Add support for more languages
