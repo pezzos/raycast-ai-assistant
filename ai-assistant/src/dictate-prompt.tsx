@@ -161,8 +161,13 @@ export default async function Command() {
     let selectedText: string | null = null;
     try {
       selectedText = await getSelectedText();
-      console.log("Found selected text:", selectedText);
+      if (selectedText) {
+        console.log("Found selected text:", selectedText);
+      } else {
+        console.log("No text currently selected");
+      }
     } catch (error) {
+      // This is a normal case when there's just a cursor position without selection
       console.log("No text selected, will generate new text");
     }
 

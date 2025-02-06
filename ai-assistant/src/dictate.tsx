@@ -144,7 +144,7 @@ export default async function Command() {
     }
 
     // Start recording
-    await showHUD("🎙️ Recording... (will stop after 2s of silence)");
+    await showHUD(`🎙️ Recording... (will stop after ${silenceTimeout}s of silence)`);
 
     const command = `
       export PATH="/opt/homebrew/bin:$PATH";
