@@ -5,24 +5,19 @@ import fetch from "node-fetch";
 import * as cheerio from "cheerio";
 import { useState, useEffect } from "react";
 import { getLLMModel, getSelectedText } from "./utils/common";
-import { PRIMARY_LANG_KEY, SHOW_EXPLORE_MORE_KEY } from "./settings";
+import { PRIMARY_LANG_KEY, SHOW_EXPLORE_MORE_KEY, USE_CACHE_KEY } from "./settings";
+import { getCacheValue, setCacheValue, CacheableData } from "./utils/cache";
 
 interface Preferences {
   openaiApiKey: string;
 }
 
-interface PageSummary {
-  title: string;
-  topic: string;
-  summary: string;
-  highlights: string[];
-  resources: string[];
-  url: string;
-}
+// Use the type from CacheableData
+type PageSummary = NonNullable<CacheableData["summary"]>;
 
 // Constants for content limits
-const MAX_CONTENT_LENGTH = 8000; // Reduced maximum characters for content
-const MAX_TITLE_LENGTH = 500; // Maximum characters for title
+const MAX_CONTENT_LENGTH = 6000; // Reduced maximum characters for content
+const MAX_TITLE_LENGTH = 300; // Maximum characters for title
 
 // Browser configuration for AppleScript commands
 const browsers = [
@@ -157,8 +152,10 @@ const sectionTitles: { [key: string]: { [key: string]: string } } = {
 // Function to get the default browser
 function getDefaultBrowser(): string | null {
   try {
-    const command = `defaults read com.apple.LaunchServices/com.apple.launchservices.secure LSHandlers | grep 'LSHandlerRoleAll.*http' -B 1 | grep LSHandlerURLScheme -A 1 | grep LSHandlerRole -A 1 | grep LSHandlerURLScheme -A 2 | grep bundleid | cut -d '"' -f 2`;
+    // Simplified and more reliable browser detection
+    const command = `defaults read com.apple.LaunchServices/com.apple.launchservices.secure | awk -F'"' '/http;/{getline; getline; print $2}'`;
     const bundleId = execSync(command).toString().trim();
+    console.log("Detected bundle ID:", bundleId);
 
     const bundleIdToName: { [key: string]: string } = {
       "company.thebrowser.Browser": "Arc",
@@ -170,7 +167,9 @@ function getDefaultBrowser(): string | null {
       "org.mozilla.firefox": "Firefox",
     };
 
-    return bundleIdToName[bundleId] || null;
+    const browser = bundleIdToName[bundleId];
+    console.log("Mapped browser name:", browser);
+    return browser;
   } catch (error) {
     console.error("Could not detect default browser:", error);
     return null;
@@ -212,17 +211,17 @@ async function getCurrentURL(): Promise<string | null> {
 // Function to clean and truncate text
 function cleanAndTruncateText(text: string, maxLength: number): string {
   return text
-    .replace(/\s+/g, " ") // Replace multiple spaces with single space
-    .replace(/\n+/g, " ") // Replace newlines with spaces
-    .replace(/\t+/g, " ") // Replace tabs with spaces
+    .replace(/[\s\n\t]+/g, " ") // Combine multiple whitespace characters
     .trim()
-    .slice(0, maxLength); // Truncate to max length
+    .slice(0, maxLength);
 }
 
-// Function to extract main content from HTML
+// Optimized function to extract main content from HTML
 function extractMainContent($: cheerio.CheerioAPI): string {
-  // Remove unwanted elements
-  $("script, style, nav, footer, header, aside, iframe, noscript").remove();
+  // Remove unwanted elements more aggressively
+  $(
+    "script, style, nav, footer, header, aside, iframe, noscript, .nav, .footer, .header, .sidebar, .ad, .advertisement, .social, .comments",
+  ).remove();
 
   // Try to find the main content container
   const selectors = ["main", "article", '[role="main"]', "#content", ".content", ".article", ".post", ".entry"];
@@ -235,7 +234,6 @@ function extractMainContent($: cheerio.CheerioAPI): string {
     if (element.length > 0) {
       content = element.text();
       if (content.length > 100) {
-        // Only use if content is substantial
         break;
       }
     }
@@ -351,12 +349,16 @@ async function summarizeContent(
     ? `You are a text summarization assistant. You MUST write EVERYTHING in ${fullLanguageName} ONLY. This includes the topic, summary, highlights, and explore more sections. Do not use any other language. Even if the input is in another language, your output must be in ${fullLanguageName} only.`
     : `You are a webpage summarization assistant. You MUST write EVERYTHING in ${fullLanguageName} ONLY. This includes the topic, summary, highlights, and explore more sections. Do not use any other language. Even if the input is in another language, your output must be in ${fullLanguageName} only.`;
 
-  console.log("=== OpenAI Request ===");
-  console.log("Language:", fullLanguageName);
-  console.log("Show Explore More:", showExploreMore);
-  console.log("\nSystem Prompt:", systemPrompt);
-
-  const userPrompt = `Please analyze this ${isSelectedText ? "text" : "webpage content"} and provide a complete summary in ${fullLanguageName} ONLY. Remember: ALL your output MUST be in ${fullLanguageName}, regardless of the input language.
+  const completion = await openai.chat.completions.create({
+    model: getLLMModel(),
+    messages: [
+      {
+        role: "system",
+        content: systemPrompt,
+      },
+      {
+        role: "user",
+        content: `Please analyze this ${isSelectedText ? "text" : "webpage content"} and provide a complete summary in ${fullLanguageName} ONLY. Remember: ALL your output MUST be in ${fullLanguageName}, regardless of the input language.
 
 Required sections (ALL IN ${fullLanguageName.toUpperCase()}):
 1. A concise summary in 2-3 sentences maximum
@@ -383,24 +385,11 @@ EXPLORE MORE:
     : ""
 }
 
-Content: "${content}"`;
-
-  console.log("\nUser Prompt:", userPrompt);
-
-  const completion = await openai.chat.completions.create({
-    model: getLLMModel(),
-    messages: [
-      {
-        role: "system",
-        content: systemPrompt,
-      },
-      {
-        role: "user",
-        content: userPrompt,
+Content: "${content}"`,
       },
     ],
-    temperature: 0.7,
-    max_tokens: 600,
+    temperature: 0.5, // Reduced for more consistent output
+    max_tokens: 500, // Reduced while maintaining quality
   });
 
   return completion.choices[0].message.content || "No summary generated";
@@ -454,23 +443,23 @@ export default function Command() {
   const [summary, setSummary] = useState<PageSummary | null>(null);
   const [primaryLang, setPrimaryLang] = useState<string>("");
   const [showExploreMore, setShowExploreMore] = useState<boolean>(true);
+  const [useCache, setUseCache] = useState<boolean>(true);
   const preferences = getPreferenceValues<Preferences>();
   const [preferencesLoaded, setPreferencesLoaded] = useState(false);
 
   useEffect(() => {
     // Load preferences from LocalStorage
     const loadPreferences = async () => {
-      const savedPrimaryLang = await LocalStorage.getItem<string>(PRIMARY_LANG_KEY);
-      const savedShowExploreMore = await LocalStorage.getItem<string>(SHOW_EXPLORE_MORE_KEY);
+      const [savedPrimaryLang, savedShowExploreMore, savedUseCache] = await Promise.all([
+        LocalStorage.getItem<string>(PRIMARY_LANG_KEY),
+        LocalStorage.getItem<string>(SHOW_EXPLORE_MORE_KEY),
+        LocalStorage.getItem<string>(USE_CACHE_KEY),
+      ]);
 
       if (savedPrimaryLang) setPrimaryLang(savedPrimaryLang);
       if (savedShowExploreMore !== null) setShowExploreMore(savedShowExploreMore === "true");
+      if (savedUseCache !== null) setUseCache(savedUseCache === "true");
       setPreferencesLoaded(true);
-
-      // Log initial configuration
-      console.log("=== Configuration ===");
-      console.log("Primary Language:", savedPrimaryLang);
-      console.log("Show Explore More:", savedShowExploreMore === "true");
     };
 
     loadPreferences();
@@ -491,22 +480,58 @@ export default function Command() {
         if (!isMounted) return;
         await showToast({ style: Toast.Style.Animated, title: "Getting content..." });
         const { content, source } = await getContent();
+        const isSelectedText = source === "selection";
+
+        // Check cache first if enabled
+        if (useCache) {
+          console.log("Cache is enabled, checking for cached content...");
+          const cacheKey = {
+            source: isSelectedText ? "selection" : "webpage",
+            type: "summary" as const,
+            language: primaryLang,
+            content: content,
+          };
+          console.log("Cache key:", cacheKey);
+
+          const cachedSummary = await getCacheValue<"summary">(cacheKey);
+          console.log("Cache result:", cachedSummary ? "Found in cache" : "Not found in cache");
+
+          if (cachedSummary) {
+            if (isMounted) {
+              console.log("Using cached summary");
+              setSummary(cachedSummary);
+              await showToast({ style: Toast.Style.Success, title: "Summary loaded from cache!" });
+              setIsLoading(false);
+              return;
+            }
+          }
+        } else {
+          console.log("Cache is disabled");
+        }
 
         // Generate summary
         if (!isMounted) return;
         await showToast({ style: Toast.Style.Animated, title: "Generating summary..." });
-        const isSelectedText = source === "selection";
 
         const summaryText = await summarizeContent(content, openai, primaryLang, isSelectedText, showExploreMore);
-
-        // Log the raw response
-        console.log("=== OpenAI Response ===");
-        console.log(summaryText);
-
         const parsedSummary = parseOpenAIResponse(summaryText, source);
 
         if (isMounted) {
           setSummary(parsedSummary);
+
+          // Cache the result if enabled
+          if (useCache) {
+            console.log("Caching new summary...");
+            const cacheKey = {
+              source: isSelectedText ? "selection" : "webpage",
+              type: "summary" as const,
+              language: primaryLang,
+              content: content,
+            };
+            await setCacheValue<"summary">(cacheKey, parsedSummary);
+            console.log("Summary cached successfully");
+          }
+
           await showToast({ style: Toast.Style.Success, title: "Summary generated!" });
         }
       } catch (e) {

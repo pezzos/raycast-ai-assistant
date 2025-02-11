@@ -14,6 +14,7 @@ export const SHOW_EXPLORE_MORE_KEY = "show-explore-more";
 export const SILENCE_TIMEOUT_KEY = "silence-timeout";
 export const USE_PERSONAL_DICTIONARY_KEY = "use-personal-dictionary";
 export const MUTE_DURING_DICTATION_KEY = "mute-during-dictation";
+export const USE_CACHE_KEY = "use-cache";
 
 const LANGUAGE_OPTIONS = [
   { value: "auto", title: "Keep the same language as the input" },
@@ -61,6 +62,7 @@ export default function Command() {
   const [experimentalSingleCall, setExperimentalSingleCall] = useState<boolean>(false);
   const [silenceTimeout, setSilenceTimeout] = useState<string>("2.0");
   const [usePersonalDictionary, setUsePersonalDictionary] = useState<boolean>(false);
+  const [useCache, setUseCache] = useState<boolean>(true);
   const [muteDuringDictation, setMuteDuringDictation] = useState<boolean>(true);
 
   useEffect(() => {
@@ -77,6 +79,7 @@ export default function Command() {
       const savedExperimentalSingleCall = await LocalStorage.getItem<string>(EXPERIMENTAL_SINGLE_CALL_KEY);
       const savedSilenceTimeout = await LocalStorage.getItem<string>(SILENCE_TIMEOUT_KEY);
       const savedUsePersonalDictionary = await LocalStorage.getItem<string>(USE_PERSONAL_DICTIONARY_KEY);
+      const savedUseCache = await LocalStorage.getItem<string>(USE_CACHE_KEY);
       const savedMuteDuringDictation = await LocalStorage.getItem<string>(MUTE_DURING_DICTATION_KEY);
 
       // Update download status for each model
@@ -95,6 +98,7 @@ export default function Command() {
       if (savedExperimentalSingleCall) setExperimentalSingleCall(savedExperimentalSingleCall === "true");
       if (savedSilenceTimeout) setSilenceTimeout(savedSilenceTimeout);
       if (savedUsePersonalDictionary) setUsePersonalDictionary(savedUsePersonalDictionary === "true");
+      if (savedUseCache !== null) setUseCache(savedUseCache === "true");
       if (savedMuteDuringDictation !== null) setMuteDuringDictation(savedMuteDuringDictation === "true");
     };
 
@@ -115,6 +119,7 @@ export default function Command() {
       LocalStorage.setItem(EXPERIMENTAL_SINGLE_CALL_KEY, experimentalSingleCall.toString()),
       LocalStorage.setItem(SILENCE_TIMEOUT_KEY, silenceTimeout),
       LocalStorage.setItem(USE_PERSONAL_DICTIONARY_KEY, usePersonalDictionary.toString()),
+      LocalStorage.setItem(USE_CACHE_KEY, useCache.toString()),
       LocalStorage.setItem(MUTE_DURING_DICTATION_KEY, muteDuringDictation.toString()),
     ]);
 
@@ -295,6 +300,19 @@ export default function Command() {
         info="Apply personal dictionary corrections during speech recognition"
         value={usePersonalDictionary}
         onChange={setUsePersonalDictionary}
+      />
+
+      <Form.Separator />
+
+      <Form.Description text="Performance Settings" />
+
+      <Form.Checkbox
+        id="useCache"
+        label="Use cache for AI operations"
+        title="Cache Results"
+        info="Cache AI results for 24 hours to improve performance (recommended)"
+        value={useCache}
+        onChange={setUseCache}
       />
     </Form>
   );
