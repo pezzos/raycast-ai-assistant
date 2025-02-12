@@ -13,6 +13,8 @@ All of this, without waiting for Apple Intelligence and without needing a latest
 
 ## Features
 
+See the features in action in the [Demo Video](https://youtu.be/TfOwWesfGqw).
+
 🌐 Smart Translation
 Are you drafting a message in another language for an international colleague? No need to copy and paste into Google Translate anymore! Simply select the text and trigger the command: your assistant will handle the translation while maintaining the tone and style. Save time and stay fluent in all your communications.
 - **Features:**
