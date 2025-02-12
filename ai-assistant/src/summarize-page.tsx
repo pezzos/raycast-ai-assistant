@@ -6,7 +6,7 @@ import * as cheerio from "cheerio";
 import { useState, useEffect } from "react";
 import { getLLMModel, getSelectedText } from "./utils/common";
 import { PRIMARY_LANG_KEY, SHOW_EXPLORE_MORE_KEY, USE_CACHE_KEY } from "./settings";
-import { getCacheValue, setCacheValue, CacheableData } from "./utils/cache";
+import { getCacheValue, setCacheValue, CacheableData, clearCache } from "./utils/cache";
 
 interface Preferences {
   openaiApiKey: string;
@@ -593,41 +593,39 @@ ${sectionTitles[primaryLang]?.source || "Source"}: ${summary.url}`
     return <Detail isLoading={true} markdown="" />;
   }
 
-  return <Detail
-    isLoading={isLoading}
-    markdown={markdown}
-    actions={
-      <ActionPanel>
-        <ActionPanel.Section>
-          <Action.CopyToClipboard
-            title="Copy to Clipboard"
-            content={markdown}
-          />
-        </ActionPanel.Section>
-        <ActionPanel.Section>
-          <Action
-            title="Clear Summaries Cache"
-            icon={Icon.Trash}
-            shortcut={{ modifiers: ["cmd", "opt"], key: "c" }}
-            onAction={async () => {
-              try {
-                await LocalStorage.removeItem(USE_CACHE_KEY);
-                await showToast({ style: Toast.Style.Success, title: "Cache cleared successfully" });
-                // Refresh the current summary
-                setIsLoading(true);
-                setSummary(null);
-                setUseCache(true);
-              } catch (error) {
-                await showToast({
-                  style: Toast.Style.Failure,
-                  title: "Failed to clear cache",
-                  message: error instanceof Error ? error.message : "An error occurred"
-                });
-              }
-            }}
-          />
-        </ActionPanel.Section>
-      </ActionPanel>
-    }
-  />;
+  return (
+    <Detail
+      isLoading={isLoading}
+      markdown={markdown}
+      actions={
+        <ActionPanel>
+          <ActionPanel.Section>
+            <Action.CopyToClipboard title="Copy to Clipboard" content={markdown} />
+          </ActionPanel.Section>
+          <ActionPanel.Section>
+            <Action
+              title="Clear Summaries Cache"
+              icon={Icon.Trash}
+              shortcut={{ modifiers: ["cmd", "opt"], key: "c" }}
+              onAction={async () => {
+                try {
+                  await clearCache();
+                  await showToast({ style: Toast.Style.Success, title: "Cache cleared successfully" });
+                  // Refresh the current summary
+                  setIsLoading(true);
+                  setSummary(null);
+                } catch (error) {
+                  await showToast({
+                    style: Toast.Style.Failure,
+                    title: "Failed to clear cache",
+                    message: error instanceof Error ? error.message : "An error occurred",
+                  });
+                }
+              }}
+            />
+          </ActionPanel.Section>
+        </ActionPanel>
+      }
+    />
+  );
 }
