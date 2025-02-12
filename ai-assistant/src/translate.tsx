@@ -27,8 +27,8 @@ export default async function Command() {
   const preferences = getPreferenceValues<Preferences>();
 
   // Get language preferences from LocalStorage
-  const primaryLanguage = await LocalStorage.getItem<string>(PRIMARY_LANG_KEY) || "en";
-  const secondaryLanguage = await LocalStorage.getItem<string>(SECONDARY_LANG_KEY) || "fr";
+  const primaryLanguage = (await LocalStorage.getItem<string>(PRIMARY_LANG_KEY)) || "en";
+  const secondaryLanguage = (await LocalStorage.getItem<string>(SECONDARY_LANG_KEY)) || "fr";
   const fixText = (await LocalStorage.getItem<string>(FIX_TEXT_KEY)) === "true";
 
   log("Starting translation with preferences", {
