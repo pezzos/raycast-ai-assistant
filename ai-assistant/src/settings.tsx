@@ -1,6 +1,7 @@
 import { Action, ActionPanel, Form, LocalStorage, popToRoot, showHUD } from "@raycast/api";
 import { useEffect, useState } from "react";
 import { isModelDownloaded } from "./utils/whisper-local";
+import { LANGUAGE_OPTIONS } from "./constants";
 
 export const DICTATE_TARGET_LANG_KEY = "dictate-target-language";
 export const WHISPER_MODE_KEY = "whisper-mode";
@@ -15,21 +16,6 @@ export const SILENCE_TIMEOUT_KEY = "silence-timeout";
 export const USE_PERSONAL_DICTIONARY_KEY = "use-personal-dictionary";
 export const MUTE_DURING_DICTATION_KEY = "mute-during-dictation";
 export const USE_CACHE_KEY = "use-cache";
-
-const LANGUAGE_OPTIONS = [
-  { value: "auto", title: "Keep the same language as the input" },
-  { value: "en", title: "English" },
-  { value: "fr", title: "French" },
-  { value: "es", title: "Spanish" },
-  { value: "de", title: "German" },
-  { value: "it", title: "Italian" },
-  { value: "pt", title: "Portuguese" },
-  { value: "nl", title: "Dutch" },
-  { value: "ru", title: "Russian" },
-  { value: "zh", title: "Chinese" },
-  { value: "ja", title: "Japanese" },
-  { value: "ko", title: "Korean" },
-];
 
 const WHISPER_MODE_OPTIONS = [
   { value: "online", title: "Online (OpenAI API)" },
