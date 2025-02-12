@@ -600,7 +600,16 @@ ${sectionTitles[primaryLang]?.source || "Source"}: ${summary.url}`
       actions={
         <ActionPanel>
           <ActionPanel.Section>
-            <Action.CopyToClipboard title="Copy to Clipboard" content={markdown} />
+            <Action.CopyToClipboard
+              title="Copy Summary Only"
+              content={summary?.summary || ""}
+              shortcut={{ modifiers: [], key: "enter" }}
+            />
+            <Action.CopyToClipboard
+              title="Copy Full Content"
+              content={markdown}
+              shortcut={{ modifiers: ["cmd"], key: "enter" }}
+            />
           </ActionPanel.Section>
           <ActionPanel.Section>
             <Action
