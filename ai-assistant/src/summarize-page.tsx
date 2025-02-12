@@ -1,4 +1,4 @@
-import { Detail, showToast, Toast, getPreferenceValues, LocalStorage } from "@raycast/api";
+import { Detail, showToast, Toast, getPreferenceValues, LocalStorage, ActionPanel, Action, Icon } from "@raycast/api";
 import OpenAI from "openai";
 import { execSync } from "child_process";
 import fetch from "node-fetch";
@@ -364,7 +364,7 @@ Required sections (ALL IN ${fullLanguageName.toUpperCase()}):
 1. A concise summary in 2-3 sentences maximum
 2. The main topic or category (one word or short phrase)
 3. Key highlights (2-3 bullet points maximum), use emojis to make it more interesting
-${showExploreMore ? `4. Suggest 2-3 related resources or topics to explore further. ${!isSelectedText ? "For each suggestion, include a URL if relevant." : ""}` : ""}
+${showExploreMore ? `4. Suggest 1-2 related resources or topics to explore further. ${!isSelectedText ? "CRITICAL: You must ONLY suggest resources with URLs that you are 100% certain exist and are accessible. Prefer well-known, authoritative websites (e.g. Wikipedia, official documentation, major news sites, established platforms). NEVER generate or guess URLs. If you cannot find a reliable, existing URL from the content or your knowledge, provide fewer suggestions or none at all. Quality is more important than quantity." : ""}` : ""}
 
 Format the response EXACTLY like this (keep the empty lines between sections, EVERYTHING IN ${fullLanguageName.toUpperCase()}):
 TOPIC: <topic>
@@ -379,9 +379,8 @@ ${
   showExploreMore
     ? `
 EXPLORE MORE:
-• <first suggestion with brief explanation> ${!isSelectedText ? "<url if available>" : ""}
-• <second suggestion with brief explanation> ${!isSelectedText ? "<url if available>" : ""}
-• <optional third suggestion> ${!isSelectedText ? "<url if available>" : ""}`
+• <title> - <brief description> - <source> <verified_url>
+• <optional_second_title> - <brief description> - <source> <verified_url>`
     : ""
 }
 
@@ -428,7 +427,14 @@ function parseOpenAIResponse(response: string, url: string): PageSummary {
         if (currentSection === "highlights") {
           summary.highlights.push(trimmedLine);
         } else if (currentSection === "resources") {
-          summary.resources.push(trimmedLine);
+          // Extract URL from the resource line
+          const urlMatch = content.match(/https?:\/\/[^\s]+$/);
+          if (urlMatch) {
+            const url = urlMatch[0];
+            const description = content.slice(0, -url.length).trim();
+            // Format as markdown link
+            summary.resources.push(`• [${description}](${url})`);
+          }
         }
       }
     }
@@ -587,5 +593,41 @@ ${sectionTitles[primaryLang]?.source || "Source"}: ${summary.url}`
     return <Detail isLoading={true} markdown="" />;
   }
 
-  return <Detail isLoading={isLoading} markdown={markdown} />;
+  return <Detail
+    isLoading={isLoading}
+    markdown={markdown}
+    actions={
+      <ActionPanel>
+        <ActionPanel.Section>
+          <Action.CopyToClipboard
+            title="Copy to Clipboard"
+            content={markdown}
+          />
+        </ActionPanel.Section>
+        <ActionPanel.Section>
+          <Action
+            title="Clear Summaries Cache"
+            icon={Icon.Trash}
+            shortcut={{ modifiers: ["cmd", "opt"], key: "c" }}
+            onAction={async () => {
+              try {
+                await LocalStorage.removeItem(USE_CACHE_KEY);
+                await showToast({ style: Toast.Style.Success, title: "Cache cleared successfully" });
+                // Refresh the current summary
+                setIsLoading(true);
+                setSummary(null);
+                setUseCache(true);
+              } catch (error) {
+                await showToast({
+                  style: Toast.Style.Failure,
+                  title: "Failed to clear cache",
+                  message: error instanceof Error ? error.message : "An error occurred"
+                });
+              }
+            }}
+          />
+        </ActionPanel.Section>
+      </ActionPanel>
+    }
+  />;
 }
