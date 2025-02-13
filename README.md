@@ -1,26 +1,31 @@
-# Raycast AI Assistant
+<p align="center">
+  <img src="images/store-logo.webp" height="128">
+  <h1 align="center">Raycast Extensions</h1>
+</p>
 
-This repository contains a Raycast extension that brings AI-powered features to your Mac, including:
-- 🌐 Smart Translation
-- 🎙️ Voice Dictation
-- 🤖 Dictate Prompt Everywhere
-- 📄 Page Summarizer
-- And more!
+<p align="center">
+  <a aria-label="Follow Raycast on X" href="https://x.com/raycastapp">
+    <img alt="" src="https://img.shields.io/badge/Follow%20@raycastapp-black.svg?style=for-the-badge&logo=X">
+  </a>
+  <a aria-label="Join the community on Slack" href="https://raycast.com/community">
+    <img alt="" src="https://img.shields.io/badge/Join%20the%20community-black.svg?style=for-the-badge&logo=Slack">
+  </a>
+</p>
 
-## Documentation
+[Raycast](https://raycast.com/) lets you control your tools with a few keystrokes. This repository contains all extensions that are available in the [Raycast Store](https://raycast.com/store). It also includes documentation and examples of how to extend Raycast using React.
 
-For complete documentation, features, installation instructions, and more, please see the [Extension README](ai-assistant/README.md).
+![Header](images/header.webp)
 
-## Quick Links
+## Getting Started
 
-- [Extension Documentation](ai-assistant/README.md)
-- [Changelog](ai-assistant/CHANGELOG.md)
-- [License](ai-assistant/LICENSE)
+Visit [https://developers.raycast.com](https://developers.raycast.com) to get started with our API. If you want to discover and install extensions, check out [our Store](https://raycast.com/store).
 
-## About
+Be sure to read and follow our [Community](https://manual.raycast.com/community-guidelines) and [Extension](https://manual.raycast.com/extensions) guidelines when submitting your extension and interacting with other folks in this repository.
 
-This extension brings Apple Intelligence-like features to all Macs, without needing the latest hardware. It integrates seamlessly with Raycast to provide AI-powered writing, translation, summarization, and dictation capabilities.
+## Feedback
 
-## Author
+Raycast wouldn't be where it is without the feedback from our community, so we would be happy to hear what you think of the API / DevX and how we can improve. Please use [GitHub issues](https://github.com/raycast/extensions/issues/new/choose) for everything API related (bugs, improvements suggestions, developer experience, docs, etc). We have a few [templates](https://developers.raycast.com/examples) that should help you get started.
 
-[Alexandre Pezzotta](https://github.com/pezzos) - Engineer passionate about AI and automation.
+## Community
+
+Join our [Slack community](https://raycast.com/community) to share your extension, debug nasty bugs or simply get to know like-minded folks.
