@@ -3,3 +3,4 @@
 ai-assistant/src/node_modules/
 *.wav
 node_modules/
+.cursor/rules/
