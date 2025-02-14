@@ -178,3 +178,6 @@ bun.lock
 
 .cursorrules
 .cursor/rules/
+
+.npmrc
+.nvmrc
