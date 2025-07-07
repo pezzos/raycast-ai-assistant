@@ -65,8 +65,8 @@
     },
     {
       "name": "dictate-models",
-      "title": "Manage Whisper Models",
-      "description": "Install and manage local Whisper speech recognition models for offline use.\nChoose between different model sizes (Tiny, Base, Small, Medium) to balance speed and accuracy based on your needs.",
+      "title": "Manage Local Models",
+      "description": "Install and manage local speech recognition models for offline use.\nSupports Whisper (universal) and Parakeet (Apple Silicon) engines with various model sizes to balance speed and accuracy.",
       "mode": "view",
       "icon": "command-icon-models.png"
     },

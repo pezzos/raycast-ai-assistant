@@ -32,7 +32,7 @@ export interface AllSettings {
 class SettingsManager {
   private static cache: Map<string, any> = new Map();
   private static loaded = false;
-  
+
   private static readonly SETTINGS_KEYS = [
     PRIMARY_LANG_KEY,
     SECONDARY_LANG_KEY,
@@ -69,9 +69,7 @@ class SettingsManager {
     }
 
     try {
-      const values = await Promise.all(
-        this.SETTINGS_KEYS.map(key => LocalStorage.getItem(key))
-      );
+      const values = await Promise.all(this.SETTINGS_KEYS.map((key) => LocalStorage.getItem(key)));
 
       this.SETTINGS_KEYS.forEach((key, index) => {
         const value = values[index];

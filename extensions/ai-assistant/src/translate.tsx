@@ -28,7 +28,7 @@ export default async function Command() {
     const [settings, openai, selectedText] = await Promise.all([
       SettingsManager.loadAllSettings(),
       OpenAIClientManager.getClient(),
-      getSelectedText()
+      getSelectedText(),
     ]);
 
     const { primaryLanguage, secondaryLanguage } = settings;

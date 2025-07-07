@@ -1,12 +1,14 @@
 import { Action, ActionPanel, Form, LocalStorage, popToRoot, showHUD } from "@raycast/api";
 import { useEffect, useState } from "react";
-import { isModelDownloaded } from "./utils/whisper-local";
+import { isWhisperModelDownloaded, isParakeetModelDownloaded, isAppleSiliconCompatible } from "./utils/local-models";
 import { LANGUAGE_OPTIONS } from "./constants";
 
 export const DICTATE_TARGET_LANG_KEY = "dictate-target-language";
 export const WHISPER_MODE_KEY = "whisper-mode";
 export const WHISPER_MODEL_KEY = "whisper-model";
 export const TRANSCRIBE_MODEL_KEY = "transcribe-model";
+export const LOCAL_ENGINE_KEY = "local-engine";
+export const PARAKEET_MODEL_KEY = "parakeet-model";
 export const PRIMARY_LANG_KEY = "primary-language";
 export const SECONDARY_LANG_KEY = "secondary-language";
 export const LLM_MODEL_KEY = "llm-model";
@@ -19,7 +21,12 @@ export const USE_CACHE_KEY = "use-cache";
 
 const WHISPER_MODE_OPTIONS = [
   { value: "transcribe", title: "Online (gpt-4o Transcribe)" },
-  { value: "local", title: "Local (Offline Whisper)" },
+  { value: "local", title: "Local (Offline)" },
+];
+
+const LOCAL_ENGINE_OPTIONS = [
+  { value: "whisper", title: "Whisper (Universal)" },
+  { value: "parakeet", title: "Parakeet (Apple Silicon Only, Ultra Fast)" },
 ];
 
 const WHISPER_MODEL_OPTIONS = [
@@ -27,6 +34,11 @@ const WHISPER_MODEL_OPTIONS = [
   { value: "base", title: "Base (Balanced)", isDownloaded: false },
   { value: "small", title: "Small (More Accurate)", isDownloaded: false },
   { value: "medium", title: "Medium (Most Accurate)", isDownloaded: false },
+];
+
+const PARAKEET_MODEL_OPTIONS = [
+  { value: "parakeet-tdt-0.6b-v2", title: "Parakeet TDT 0.6B v2 (600M params, Fast, English only)", isDownloaded: false },
+  { value: "parakeet-rnnt-1.1b", title: "Parakeet RNNT 1.1B (1100M params, Higher accuracy, English only)", isDownloaded: false },
 ];
 
 const TRANSCRIBE_MODEL_OPTIONS = [
@@ -49,7 +61,9 @@ export default function Command() {
   const [secondaryLanguage, setSecondaryLanguage] = useState<string>("fr");
   const [llmModel, setLlmModel] = useState<string>("gpt-4o-mini");
   const [whisperMode, setWhisperMode] = useState<string>("transcribe");
+  const [localEngine, setLocalEngine] = useState<string>("whisper");
   const [whisperModel, setWhisperModel] = useState<string>("base");
+  const [parakeetModel, setParakeetModel] = useState<string>("parakeet-tdt-0.6b-v2");
   const [transcribeModel, setTranscribeModel] = useState<string>("gpt-4o-mini-transcribe");
   const [fixText, setFixText] = useState<boolean>(true);
   const [showExploreMore, setShowExploreMore] = useState<boolean>(true);
@@ -65,7 +79,9 @@ export default function Command() {
       const savedPrimaryLang = await LocalStorage.getItem<string>(PRIMARY_LANG_KEY);
       const savedSecondaryLang = await LocalStorage.getItem<string>(SECONDARY_LANG_KEY);
       const savedWhisperMode = await LocalStorage.getItem<string>(WHISPER_MODE_KEY);
+      const savedLocalEngine = await LocalStorage.getItem<string>(LOCAL_ENGINE_KEY);
       const savedWhisperModel = await LocalStorage.getItem<string>(WHISPER_MODEL_KEY);
+      const savedParakeetModel = await LocalStorage.getItem<string>(PARAKEET_MODEL_KEY);
       const savedTranscribeModel = await LocalStorage.getItem<string>(TRANSCRIBE_MODEL_KEY);
       const savedLlmModel = await LocalStorage.getItem<string>(LLM_MODEL_KEY);
       const savedFixText = await LocalStorage.getItem<string>(FIX_TEXT_KEY);
@@ -77,14 +93,25 @@ export default function Command() {
 
       // Update download status for each model
       WHISPER_MODEL_OPTIONS.forEach((model) => {
-        model.isDownloaded = isModelDownloaded(model.value);
+        model.isDownloaded = isWhisperModelDownloaded(model.value);
       });
+
+      // Update Parakeet model status (async)
+      for (const model of PARAKEET_MODEL_OPTIONS) {
+        try {
+          model.isDownloaded = await isParakeetModelDownloaded(model.value);
+        } catch {
+          model.isDownloaded = false;
+        }
+      }
 
       if (savedTargetLang) setTargetLanguage(savedTargetLang);
       if (savedPrimaryLang) setPrimaryLanguage(savedPrimaryLang);
       if (savedSecondaryLang) setSecondaryLanguage(savedSecondaryLang);
       if (savedWhisperMode) setWhisperMode(savedWhisperMode);
+      if (savedLocalEngine) setLocalEngine(savedLocalEngine);
       if (savedWhisperModel) setWhisperModel(savedWhisperModel);
+      if (savedParakeetModel) setParakeetModel(savedParakeetModel);
       if (savedTranscribeModel) setTranscribeModel(savedTranscribeModel);
       if (savedLlmModel) setLlmModel(savedLlmModel);
       if (savedFixText) setFixText(savedFixText === "true");
@@ -105,7 +132,9 @@ export default function Command() {
       LocalStorage.setItem(PRIMARY_LANG_KEY, primaryLanguage),
       LocalStorage.setItem(SECONDARY_LANG_KEY, secondaryLanguage),
       LocalStorage.setItem(WHISPER_MODE_KEY, whisperMode),
+      LocalStorage.setItem(LOCAL_ENGINE_KEY, localEngine),
       LocalStorage.setItem(WHISPER_MODEL_KEY, whisperModel),
+      LocalStorage.setItem(PARAKEET_MODEL_KEY, parakeetModel),
       LocalStorage.setItem(TRANSCRIBE_MODEL_KEY, transcribeModel),
       LocalStorage.setItem(LLM_MODEL_KEY, llmModel),
       LocalStorage.setItem(FIX_TEXT_KEY, fixText.toString()),
@@ -176,7 +205,7 @@ export default function Command() {
 
       <Form.Dropdown
         id="whisperMode"
-        title="Whisper Mode"
+        title="Speech Recognition Mode"
         info="Choose between online (OpenAI API) or local processing"
         value={whisperMode}
         onChange={setWhisperMode}
@@ -206,24 +235,75 @@ export default function Command() {
       {whisperMode === "local" && (
         <>
           <Form.Dropdown
-            id="whisperModel"
-            title="Local Whisper Model"
-            info="Select the local Whisper model to use (only applies when using local mode)"
-            value={whisperModel}
-            onChange={setWhisperModel}
+            id="localEngine"
+            title="Local Engine"
+            info="Select the local speech recognition engine"
+            value={localEngine}
+            onChange={setLocalEngine}
           >
-            {WHISPER_MODEL_OPTIONS.map((model) => (
+            {LOCAL_ENGINE_OPTIONS.map((engine) => (
               <Form.Dropdown.Item
-                key={model.value}
-                value={model.value}
-                title={`${model.title} ${model.isDownloaded ? "✓" : "⚠️"}`}
+                key={engine.value}
+                value={engine.value}
+                title={`${engine.title} ${engine.value === "parakeet" && !isAppleSiliconCompatible() ? "(Not Compatible)" : ""}`}
               />
             ))}
           </Form.Dropdown>
-          {!WHISPER_MODEL_OPTIONS.find((model) => model.value === whisperModel)?.isDownloaded ? (
-            <Form.Description text="⚠️ Models need to be downloaded before use. Use the 'Manage Whisper Models' command to download and manage models." />
-          ) : (
-            <Form.Description text="Selected model is downloaded and ready to use." />
+
+          {localEngine === "whisper" && (
+            <>
+              <Form.Dropdown
+                id="whisperModel"
+                title="Whisper Model"
+                info="Select the local Whisper model to use"
+                value={whisperModel}
+                onChange={setWhisperModel}
+              >
+                {WHISPER_MODEL_OPTIONS.map((model) => (
+                  <Form.Dropdown.Item
+                    key={model.value}
+                    value={model.value}
+                    title={`${model.title} ${model.isDownloaded ? "✓" : "⚠️"}`}
+                  />
+                ))}
+              </Form.Dropdown>
+              {!WHISPER_MODEL_OPTIONS.find((model) => model.value === whisperModel)?.isDownloaded ? (
+                <Form.Description text="⚠️ Models need to be downloaded before use. Use the 'Manage Local Models' command to download and manage models." />
+              ) : (
+                <Form.Description text="Selected model is downloaded and ready to use." />
+              )}
+            </>
+          )}
+
+          {localEngine === "parakeet" && (
+            <>
+              {!isAppleSiliconCompatible() && (
+                <Form.Description text="❌ Parakeet requires Apple Silicon (M-series) Mac. Please select Whisper engine instead." />
+              )}
+              <Form.Dropdown
+                id="parakeetModel"
+                title="Parakeet Model"
+                info="Select the Parakeet model to use (Apple Silicon only)"
+                value={parakeetModel}
+                onChange={setParakeetModel}
+              >
+                {PARAKEET_MODEL_OPTIONS.map((model) => (
+                  <Form.Dropdown.Item
+                    key={model.value}
+                    value={model.value}
+                    title={`${model.title} ${model.isDownloaded ? "✓" : "⚠️"}`}
+                  />
+                ))}
+              </Form.Dropdown>
+              {!PARAKEET_MODEL_OPTIONS.find((model) => model.value === parakeetModel)?.isDownloaded ? (
+                <Form.Description text="⚠️ Models need to be downloaded before use. Use the 'Manage Local Models' command to download and manage models." />
+              ) : (
+                <Form.Description text="Selected model is downloaded and ready to use. Ultra-fast transcription on Apple Silicon!" />
+              )}
+              {isAppleSiliconCompatible() && (
+                <Form.Description text="💡 Parakeet provides ultra-fast transcription optimized specifically for Apple Silicon. Up to 60x faster than Whisper!" />
+              )}
+            </>
           )}
         </>
       )}

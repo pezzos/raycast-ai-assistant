@@ -1,5 +1,4 @@
 import { showHUD, getPreferenceValues, LocalStorage, Clipboard } from "@raycast/api";
-import OpenAI from "openai";
 import fs from "fs";
 import path from "path";
 import { exec } from "child_process";
@@ -8,6 +7,8 @@ import {
   DICTATE_TARGET_LANG_KEY,
   WHISPER_MODE_KEY,
   WHISPER_MODEL_KEY,
+  PARAKEET_MODEL_KEY,
+  LOCAL_ENGINE_KEY,
   TRANSCRIBE_MODEL_KEY,
   SILENCE_TIMEOUT_KEY,
   USE_PERSONAL_DICTIONARY_KEY,
@@ -15,14 +16,13 @@ import {
   FIX_TEXT_KEY,
 } from "./settings";
 import { cleanText, getLLMModel } from "./utils/common";
-import { isWhisperInstalled, isModelDownloaded, transcribeAudio } from "./utils/whisper-local";
+import { isLocalTranscriptionAvailable, transcribeAudio, type ModelEngine } from "./utils/local-models";
 import { getPersonalDictionaryPrompt } from "./utils/dictionary";
 import { setSystemAudioMute, isSystemAudioMuted } from "./utils/audio";
 import { measureTime } from "./utils/timing";
 import { startPeriodicNotification, stopPeriodicNotification } from "./utils/timing";
 import { addTranscriptionToHistory, getRecordingsToKeep } from "./utils/transcription-history";
 import { getActiveApplication } from "./utils/active-app";
-import SettingsManager from "./utils/settings-manager";
 import OpenAIClientManager from "./utils/openai-client";
 
 const execAsync = promisify(exec);
@@ -76,11 +76,9 @@ export default async function Command() {
 
   try {
     // Load settings and check parallel conditions
-    const [settings, preferences, audioMuteState, activeApp] = await Promise.all([
-      SettingsManager.loadAllSettings(),
+    const [preferences, audioMuteState] = await Promise.all([
       getPreferenceValues<Preferences>(),
       isSystemAudioMuted(),
-      getActiveApplication()
     ]);
 
     // Apply settings
@@ -93,8 +91,14 @@ export default async function Command() {
     const savedWhisperMode = await LocalStorage.getItem<string>(WHISPER_MODE_KEY);
     const whisperMode = savedWhisperMode || "transcribe";
 
+    const savedLocalEngine = await LocalStorage.getItem<string>(LOCAL_ENGINE_KEY);
+    const localEngine = (savedLocalEngine as ModelEngine) || "whisper";
+
     const savedWhisperModel = await LocalStorage.getItem<string>(WHISPER_MODEL_KEY);
     const whisperModel = savedWhisperModel || "base";
+
+    const savedParakeetModel = await LocalStorage.getItem<string>(PARAKEET_MODEL_KEY);
+    const parakeetModel = savedParakeetModel || "parakeet-tdt-0.6b-v2";
 
     const savedTranscribeModel = await LocalStorage.getItem<string>(TRANSCRIBE_MODEL_KEY);
     const transcribeModel = savedTranscribeModel || "gpt-4o-mini-transcribe";
@@ -110,40 +114,51 @@ export default async function Command() {
 
     originalMuteState = audioMuteState;
 
+    const currentModel =
+      whisperMode === "local"
+        ? localEngine === "whisper"
+          ? whisperModel
+          : parakeetModel
+        : whisperMode === "transcribe"
+          ? transcribeModel
+          : "whisper-1";
+
     console.log("⚙️ Configuration:", {
       mode: whisperMode,
-      model: whisperMode === "local" ? whisperModel : whisperMode === "transcribe" ? transcribeModel : "whisper-1",
+      engine: whisperMode === "local" ? localEngine : "cloud",
+      model: currentModel,
       targetLanguage,
       fixText: preferences.fixText,
       usePersonalDictionary,
     });
 
     // Parallel setup operations
-    const [whisperCheck, openai, directorySetup] = await Promise.all([
-      // Check if local Whisper is available if needed
-      whisperMode === "local" ? (async () => {
-        const isWhisperReady = await isWhisperInstalled();
-        if (!isWhisperReady) {
-          throw new Error("Whisper is not installed - Please install it from the Whisper Models menu");
-        }
+    const [, openai] = await Promise.all([
+      // Check if local model is available if needed
+      whisperMode === "local"
+        ? (async () => {
+            const currentModelId = localEngine === "whisper" ? whisperModel : parakeetModel;
+            const isAvailable = await isLocalTranscriptionAvailable(localEngine, currentModelId);
 
-        if (!isModelDownloaded(whisperModel)) {
-          throw new Error(`Model ${whisperModel} is not downloaded - Please download it from the Whisper Models menu`);
-        }
-      })() : Promise.resolve(),
-      
+            if (!isAvailable) {
+              const engineName = localEngine === "whisper" ? "Whisper" : "Parakeet";
+              throw new Error(
+                `${engineName} engine or model ${currentModelId} is not available - Please install from the Local Models menu`,
+              );
+            }
+          })()
+        : Promise.resolve(),
+
       // Setup OpenAI client
       OpenAIClientManager.getClient(),
-      
-      // Prepare directory and cleanup
-      (async () => {
-        if (!fs.existsSync(RECORDINGS_DIR)) {
-          fs.mkdirSync(RECORDINGS_DIR, { recursive: true });
-        }
-        const recordingsToKeep = await getRecordingsToKeep();
-        await cleanupOldRecordings(RECORDINGS_DIR, recordingsToKeep);
-      })()
     ]);
+
+    // Prepare directory and cleanup
+    if (!fs.existsSync(RECORDINGS_DIR)) {
+      fs.mkdirSync(RECORDINGS_DIR, { recursive: true });
+    }
+    const recordingsToKeep = await getRecordingsToKeep();
+    await cleanupOldRecordings(RECORDINGS_DIR, recordingsToKeep);
 
     const outputPath = path.join(RECORDINGS_DIR, `recording-${Date.now()}.wav`);
 
@@ -175,10 +190,14 @@ export default async function Command() {
     let transcription: Transcription;
 
     if (whisperMode === "local") {
-      transcription = await measureTime("Local Whisper transcription", async () => {
+      const engineDisplayName = localEngine === "whisper" ? "Whisper" : "Parakeet";
+      const currentModelId = localEngine === "whisper" ? whisperModel : parakeetModel;
+
+      transcription = await measureTime(`Local ${engineDisplayName} transcription`, async () => {
         const text = await transcribeAudio(
           outputPath,
-          whisperModel,
+          localEngine,
+          currentModelId,
           targetLanguage === "auto" ? undefined : targetLanguage,
         );
         return { text };
@@ -238,7 +257,13 @@ export default async function Command() {
     // Add to history
     await addTranscriptionToHistory(finalText, targetLanguage, outputPath, {
       mode: whisperMode === "local" ? "local" : whisperMode === "transcribe" ? "transcribe" : "online",
-      model: whisperMode === "local" ? whisperModel : whisperMode === "transcribe" ? transcribeModel : undefined,
+      model:
+        whisperMode === "local"
+          ? `${localEngine}-${localEngine === "whisper" ? whisperModel : parakeetModel}`
+          : whisperMode === "transcribe"
+            ? transcribeModel
+            : undefined,
+      engine: whisperMode === "local" ? localEngine : undefined,
       textCorrectionEnabled: preferences.fixText,
       targetLanguage,
       activeApp: await getActiveApplication(),
