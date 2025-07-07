@@ -22,6 +22,8 @@ import { measureTime } from "./utils/timing";
 import { startPeriodicNotification, stopPeriodicNotification } from "./utils/timing";
 import { addTranscriptionToHistory, getRecordingsToKeep } from "./utils/transcription-history";
 import { getActiveApplication } from "./utils/active-app";
+import SettingsManager from "./utils/settings-manager";
+import OpenAIClientManager from "./utils/openai-client";
 
 const execAsync = promisify(exec);
 const SOX_PATH = "/opt/homebrew/bin/sox";
@@ -73,9 +75,15 @@ export default async function Command() {
   let muteDuringDictation = false;
 
   try {
-    const preferences = getPreferenceValues<Preferences>();
+    // Load settings and check parallel conditions
+    const [settings, preferences, audioMuteState, activeApp] = await Promise.all([
+      SettingsManager.loadAllSettings(),
+      getPreferenceValues<Preferences>(),
+      isSystemAudioMuted(),
+      getActiveApplication()
+    ]);
 
-    // Load settings from local storage
+    // Apply settings
     const savedFixText = await LocalStorage.getItem<string>(FIX_TEXT_KEY);
     preferences.fixText = savedFixText === "true";
 
@@ -100,6 +108,8 @@ export default async function Command() {
     const savedMuteDuringDictation = await LocalStorage.getItem<string>(MUTE_DURING_DICTATION_KEY);
     muteDuringDictation = savedMuteDuringDictation === "true";
 
+    originalMuteState = audioMuteState;
+
     console.log("⚙️ Configuration:", {
       mode: whisperMode,
       model: whisperMode === "local" ? whisperModel : whisperMode === "transcribe" ? transcribeModel : "whisper-1",
@@ -108,38 +118,37 @@ export default async function Command() {
       usePersonalDictionary,
     });
 
-    // Check if local Whisper is available if needed
-    if (whisperMode === "local") {
-      const isWhisperReady = await isWhisperInstalled();
-      if (!isWhisperReady) {
-        await showHUD("❌ Whisper is not installed - Please install it from the Whisper Models menu");
-        return;
-      }
+    // Parallel setup operations
+    const [whisperCheck, openai, directorySetup] = await Promise.all([
+      // Check if local Whisper is available if needed
+      whisperMode === "local" ? (async () => {
+        const isWhisperReady = await isWhisperInstalled();
+        if (!isWhisperReady) {
+          throw new Error("Whisper is not installed - Please install it from the Whisper Models menu");
+        }
 
-      if (!isModelDownloaded(whisperModel)) {
-        await showHUD(`❌ Model ${whisperModel} is not downloaded - Please download it from the Whisper Models menu`);
-        return;
-      }
-    }
-
-    const openai = new OpenAI({
-      apiKey: preferences.openaiApiKey,
-    });
-
-    // Prepare temporary file
-    if (!fs.existsSync(RECORDINGS_DIR)) {
-      fs.mkdirSync(RECORDINGS_DIR, { recursive: true });
-    }
-
-    // Clean up old recordings that are not in history
-    const recordingsToKeep = await getRecordingsToKeep();
-    await cleanupOldRecordings(RECORDINGS_DIR, recordingsToKeep);
+        if (!isModelDownloaded(whisperModel)) {
+          throw new Error(`Model ${whisperModel} is not downloaded - Please download it from the Whisper Models menu`);
+        }
+      })() : Promise.resolve(),
+      
+      // Setup OpenAI client
+      OpenAIClientManager.getClient(),
+      
+      // Prepare directory and cleanup
+      (async () => {
+        if (!fs.existsSync(RECORDINGS_DIR)) {
+          fs.mkdirSync(RECORDINGS_DIR, { recursive: true });
+        }
+        const recordingsToKeep = await getRecordingsToKeep();
+        await cleanupOldRecordings(RECORDINGS_DIR, recordingsToKeep);
+      })()
+    ]);
 
     const outputPath = path.join(RECORDINGS_DIR, `recording-${Date.now()}.wav`);
 
-    // Handle audio muting if enabled
+    // Handle audio muting if enabled (originalMuteState already set from parallel call)
     if (muteDuringDictation) {
-      originalMuteState = await isSystemAudioMuted();
       await setSystemAudioMute(true);
     }
 
@@ -228,13 +237,7 @@ export default async function Command() {
 
     // Add to history
     await addTranscriptionToHistory(finalText, targetLanguage, outputPath, {
-      mode: experimentalSingleCall
-        ? "gpt4"
-        : whisperMode === "local"
-          ? "local"
-          : whisperMode === "transcribe"
-            ? "transcribe"
-            : "online",
+      mode: whisperMode === "local" ? "local" : whisperMode === "transcribe" ? "transcribe" : "online",
       model: whisperMode === "local" ? whisperModel : whisperMode === "transcribe" ? transcribeModel : undefined,
       textCorrectionEnabled: preferences.fixText,
       targetLanguage,

@@ -4,12 +4,11 @@ import fs from "fs";
 import path from "path";
 import { exec } from "child_process";
 import { promisify } from "util";
-import { cleanText, getLLMModel, getSelectedText, replaceSelectedText } from "./utils/common";
+import { getLLMModel, getSelectedText, replaceSelectedText } from "./utils/common";
 import {
   SILENCE_TIMEOUT_KEY,
   MUTE_DURING_DICTATION_KEY,
   USE_PERSONAL_DICTIONARY_KEY,
-  FIX_TEXT_KEY,
   WHISPER_MODE_KEY,
   TRANSCRIBE_MODEL_KEY,
 } from "./settings";
@@ -69,7 +68,6 @@ async function cleanupOldRecordings(tempDir: string, recordingsToKeep: Set<strin
  * @param selectedText Optional selected text to include in the prompt
  * @param openai OpenAI instance
  * @param usePersonalDictionary Whether to use the personal dictionary
- * @param fixText Whether to fix text grammar and spelling
  * @returns Promise<string> The generated text
  */
 async function executePrompt(
@@ -77,7 +75,6 @@ async function executePrompt(
   selectedText: string | null,
   openai: OpenAI,
   usePersonalDictionary: boolean,
-  fixText: boolean,
 ): Promise<string> {
   console.log("Executing prompt with:", { prompt, hasSelectedText: !!selectedText });
 
@@ -90,10 +87,8 @@ async function executePrompt(
   const userPrompt = selectedText
     ? `Please modify the following text according to this instruction: "${prompt}"${
         dictionaryPrompt ? "\n\nPlease also apply these dictionary rules:\n" + dictionaryPrompt : ""
-      }${fixText ? "\n\nPlease fix any grammar or spelling issues while keeping the same language." : ""}\n\nText to modify: "${selectedText}"`
-    : `${prompt}${dictionaryPrompt ? "\n\nPlease apply these dictionary rules:\n" + dictionaryPrompt : ""}${
-        fixText ? "\n\nPlease fix any grammar or spelling issues while keeping the same language." : ""
-      }`;
+      }\n\nText to modify: "${selectedText}"`
+    : `${prompt}${dictionaryPrompt ? "\n\nPlease apply these dictionary rules:\n" + dictionaryPrompt : ""}`;
 
   console.log("Sending to OpenAI:", {
     model: getLLMModel(),
@@ -138,8 +133,6 @@ export default async function Command() {
     const preferences = getPreferenceValues<Preferences>();
 
     // Load settings from local storage
-    const savedFixText = await LocalStorage.getItem<string>(FIX_TEXT_KEY);
-    preferences.fixText = savedFixText === "true";
 
     const savedWhisperMode = await LocalStorage.getItem<string>(WHISPER_MODE_KEY);
     const whisperMode = savedWhisperMode || "transcribe";
@@ -229,22 +222,14 @@ export default async function Command() {
 
     stopPeriodicNotification();
 
-    // Clean up the transcription if needed
-    let prompt = transcription.text;
-    if (preferences.fixText) {
-      await showHUD("✍️ Improving prompt...");
-      startPeriodicNotification("✍️ Improving prompt");
-      prompt = await measureTime("Text improvement", async () => {
-        return await cleanText(prompt, openai);
-      });
-      stopPeriodicNotification();
-    }
+    // For prompt mode, we don't fix text since it's already AI-generated content
+    const prompt = transcription.text;
 
     // Add to history
     await addTranscriptionToHistory(prompt, "prompt", outputPath, {
       mode: whisperMode === "transcribe" ? "transcribe" : "online",
       model: whisperMode === "transcribe" ? transcribeModel : undefined,
-      textCorrectionEnabled: preferences.fixText,
+      textCorrectionEnabled: false, // No text correction for prompt mode
       targetLanguage: "prompt",
       activeApp: await getActiveApplication(),
     });
@@ -254,7 +239,7 @@ export default async function Command() {
     startPeriodicNotification("🤖 Processing your request");
 
     const generatedText = await measureTime("Prompt execution", async () => {
-      return await executePrompt(prompt, selectedText, openai, usePersonalDictionary, preferences.fixText);
+      return await executePrompt(prompt, selectedText, openai, usePersonalDictionary);
     });
 
     stopPeriodicNotification();

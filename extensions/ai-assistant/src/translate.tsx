@@ -3,6 +3,8 @@ import OpenAI from "openai";
 import { getSelectedText, replaceSelectedText, getLLMModel } from "./utils/common";
 import { PRIMARY_LANG_KEY, SECONDARY_LANG_KEY, FIX_TEXT_KEY } from "./settings";
 import { LANGUAGE_OPTIONS } from "./constants";
+import SettingsManager from "./utils/settings-manager";
+import OpenAIClientManager from "./utils/openai-client";
 
 // Debug logging function
 function log(message: string, data?: unknown) {
@@ -17,40 +19,27 @@ interface Preferences {
   openaiApiKey: string;
 }
 
-// Initialize OpenAI client
-let openai: OpenAI;
-
 // Cache for translations
 const translationCache = new Map<string, string>();
 
 export default async function Command() {
-  const preferences = getPreferenceValues<Preferences>();
-
-  // Get language preferences from LocalStorage
-  const primaryLanguage = (await LocalStorage.getItem<string>(PRIMARY_LANG_KEY)) || "en";
-  const secondaryLanguage = (await LocalStorage.getItem<string>(SECONDARY_LANG_KEY)) || "fr";
-  const fixText = (await LocalStorage.getItem<string>(FIX_TEXT_KEY)) === "true";
-
-  log("Starting translation with preferences", {
-    primaryLanguage,
-    secondaryLanguage,
-    fixText,
-  });
-
   try {
-    // Initialize OpenAI client
-    if (!openai) {
-      if (!preferences.openaiApiKey) {
-        throw new Error("OpenAI API key is not set in preferences");
-      }
-      openai = new OpenAI({
-        apiKey: preferences.openaiApiKey,
-      });
-      log("OpenAI client initialized");
-    }
+    // Load settings and initialize OpenAI client in parallel
+    const [settings, openai, selectedText] = await Promise.all([
+      SettingsManager.loadAllSettings(),
+      OpenAIClientManager.getClient(),
+      getSelectedText()
+    ]);
 
-    // Get selected text
-    const selectedText = await getSelectedText();
+    const { primaryLanguage, secondaryLanguage } = settings;
+    const fixText = (await LocalStorage.getItem<string>(FIX_TEXT_KEY)) === "true";
+
+    log("Starting translation with preferences", {
+      primaryLanguage,
+      secondaryLanguage,
+      fixText,
+    });
+
     log("Selected text", { length: selectedText?.length, text: selectedText });
 
     if (!selectedText || selectedText.trim().length === 0) {
