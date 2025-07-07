@@ -4,15 +4,17 @@ import { promisify } from "util";
 const execAsync = promisify(exec);
 
 /**
- * Get optimized silence detection parameters based on system capabilities
+ * Get optimized silence detection parameters and audio format
  */
-export function getOptimizedSilenceParams(): { timeout: number; threshold: string } {
-  // More aggressive parameters for better responsiveness
-  // - Reduced timeout for faster detection
-  // - Slightly higher threshold to avoid false positives
+export function getOptimizedAudioParams(): {
+  timeout: number;
+  threshold: string;
+  soxArgs: string;
+} {
   return {
     timeout: 1.5, // Reduced from 2.0s to 1.5s
     threshold: "3%", // Increased from 2% to 3% to avoid noise triggering
+    soxArgs: "-r 16000 -c 1 -b 16", // Direct recording: 16kHz mono 16-bit
   };
 }
 

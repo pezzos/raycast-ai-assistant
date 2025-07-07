@@ -17,7 +17,7 @@ import {
 import { cleanOutputText, enhancedTextProcessing } from "./utils/common";
 import { isLocalTranscriptionAvailable, transcribeAudio, type ModelEngine } from "./utils/local-models";
 import { getPersonalDictionaryPrompt } from "./utils/dictionary";
-import { setSystemAudioMute, isSystemAudioMuted, getOptimizedSilenceParams, testAudioDevice } from "./utils/audio";
+import { setSystemAudioMute, isSystemAudioMuted, getOptimizedAudioParams, testAudioDevice } from "./utils/audio";
 import { measureTime } from "./utils/timing";
 import { startPeriodicNotification, stopPeriodicNotification } from "./utils/timing";
 import { addTranscriptionToHistory, getRecordingsToKeep } from "./utils/transcription-history";
@@ -178,15 +178,15 @@ export default async function Command() {
       await setSystemAudioMute(true);
     }
 
-    // Get optimized silence parameters
-    const silenceParams = getOptimizedSilenceParams();
+    // Get optimized audio parameters (format + silence detection)
+    const audioParams = getOptimizedAudioParams();
 
-    // Start recording with optimized parameters
-    await showHUD(`🎙️ Recording... (will stop after ${silenceParams.timeout}s of silence)`);
+    // Start recording with optimized parameters and direct format
+    await showHUD(`🎙️ Recording... (will stop after ${audioParams.timeout}s of silence)`);
 
     const command = `
       export PATH="/opt/homebrew/bin:$PATH";
-      "${SOX_PATH}" -d "${outputPath}" silence 1 0.1 0% 1 ${silenceParams.timeout} ${silenceParams.threshold}
+      "${SOX_PATH}" -d ${audioParams.soxArgs} "${outputPath}" silence 1 0.1 0% 1 ${audioParams.timeout} ${audioParams.threshold}
     `;
 
     await execAsync(command, { shell: "/bin/zsh" });

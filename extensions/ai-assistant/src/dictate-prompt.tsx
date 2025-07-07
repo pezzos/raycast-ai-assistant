@@ -15,7 +15,7 @@ import {
   PARAKEET_MODEL_KEY,
   LOCAL_ENGINE_KEY,
 } from "./settings";
-import { setSystemAudioMute, isSystemAudioMuted, getOptimizedSilenceParams } from "./utils/audio";
+import { setSystemAudioMute, isSystemAudioMuted, getOptimizedAudioParams } from "./utils/audio";
 import { measureTimeAdvanced } from "./utils/timing";
 import { startPeriodicNotification, stopPeriodicNotification } from "./utils/timing";
 import { addTranscriptionToHistory, getRecordingsToKeep } from "./utils/transcription-history";
@@ -216,9 +216,9 @@ export default async function Command() {
       await setSystemAudioMute(true);
     }
 
-    // Get optimized silence parameters and start recording with profiling
-    const silenceParams = getOptimizedSilenceParams();
-    await showHUD(`🎙️ Recording... (will stop after ${silenceParams.timeout}s of silence)`);
+    // Get optimized audio parameters and start recording with profiling
+    const audioParams = getOptimizedAudioParams();
+    await showHUD(`🎙️ Recording... (will stop after ${audioParams.timeout}s of silence)`);
     console.log("Starting recording...");
 
     const audioLength = await measureTimeAdvanced(
@@ -226,7 +226,7 @@ export default async function Command() {
       async () => {
         const command = `
         export PATH="/opt/homebrew/bin:$PATH";
-        "${SOX_PATH}" -d "${outputPath}" silence 1 0.1 0% 1 ${silenceParams.timeout} ${silenceParams.threshold}
+        "${SOX_PATH}" -d ${audioParams.soxArgs} "${outputPath}" silence 1 0.1 0% 1 ${audioParams.timeout} ${audioParams.threshold}
       `;
 
         await execAsync(command, { shell: "/bin/zsh" });

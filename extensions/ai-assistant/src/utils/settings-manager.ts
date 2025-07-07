@@ -13,6 +13,7 @@ import {
   FIX_TEXT_KEY,
   USE_CACHE_KEY,
 } from "../settings";
+import { clearModelCache } from "./local-models";
 
 export interface AllSettings {
   primaryLanguage: string;
@@ -95,6 +96,12 @@ class SettingsManager {
   static async set(key: string, value: any): Promise<void> {
     this.cache.set(key, value);
     await LocalStorage.setItem(key, value);
+
+    // Clear model cache when model-related settings change
+    const modelRelatedKeys = [WHISPER_MODEL_KEY, WHISPER_MODE_KEY, TRANSCRIBE_MODEL_KEY];
+    if (modelRelatedKeys.includes(key)) {
+      clearModelCache();
+    }
   }
 
   static clearCache(): void {

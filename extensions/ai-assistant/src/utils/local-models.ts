@@ -7,12 +7,19 @@ import os from "os";
 
 const execAsync = promisify(exec);
 
-// Session-based memoization cache to avoid redundant checks
-const sessionCache = new Map<string, { value: unknown; timestamp: number }>();
-const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes cache
+// Persistent session cache - only cleared when settings change
+const sessionCache = new Map<string, unknown>();
 
 function getCacheKey(operation: string, ...args: unknown[]): string {
   return `${operation}:${JSON.stringify(args)}`;
+}
+
+/**
+ * Clear the session cache - call when user changes settings
+ */
+export function clearModelCache(): void {
+  sessionCache.clear();
+  console.log("Model verification cache cleared");
 }
 
 function memoize<T>(fn: (...args: unknown[]) => T | Promise<T>, operation: string) {
@@ -20,13 +27,13 @@ function memoize<T>(fn: (...args: unknown[]) => T | Promise<T>, operation: strin
     const key = getCacheKey(operation, ...args);
     const cached = sessionCache.get(key);
 
-    if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
+    if (cached !== undefined) {
       console.log(`Using cached result for ${operation}:`, args);
-      return cached.value;
+      return cached as T;
     }
 
     const result = await fn(...args);
-    sessionCache.set(key, { value: result, timestamp: Date.now() });
+    sessionCache.set(key, result);
     console.log(`Cached new result for ${operation}:`, args);
     return result;
   };
@@ -35,8 +42,7 @@ function memoize<T>(fn: (...args: unknown[]) => T | Promise<T>, operation: strin
 // System requirements check
 const isAppleSilicon = process.arch === "arm64";
 
-// Homebrew binary paths
-const FFMPEG_PATH = "/opt/homebrew/bin/ffmpeg";
+// Homebrew binary paths (FFMPEG removed since we use direct sox recording)
 const FFPROBE_PATH = "/opt/homebrew/bin/ffprobe";
 
 // Model engine types
@@ -720,53 +726,9 @@ function getWhisperModelDescription(model: string): string {
   return descriptions[model as keyof typeof descriptions] || "Whisper model";
 }
 
-/**
- * Check if audio file needs conversion for transcription
- */
-async function needsAudioConversion(audioPath: string, targetSampleRate = 16000): Promise<boolean> {
-  try {
-    const { stdout } = await execAsync(
-      `"${FFPROBE_PATH}" -v quiet -print_format json -show_format -show_streams "${audioPath}"`,
-    );
-    const info = JSON.parse(stdout);
-
-    const audioStream = info.streams?.find((stream: { codec_type: string }) => stream.codec_type === "audio");
-    if (!audioStream) {
-      return true; // No audio stream found, needs conversion
-    }
-
-    const sampleRate = parseInt(audioStream.sample_rate);
-    const channels = parseInt(audioStream.channels);
-    const codec = audioStream.codec_name;
-
-    // Check if already in correct format (16kHz mono PCM)
-    const isCorrectFormat = sampleRate === targetSampleRate && channels === 1 && codec === "pcm_s16le";
-
-    console.log(`Audio format check: ${sampleRate}Hz, ${channels}ch, ${codec} - needs conversion: ${!isCorrectFormat}`);
-    return !isCorrectFormat;
-  } catch (error) {
-    console.warn("Could not analyze audio format, assuming conversion needed:", error);
-    return true; // When in doubt, convert
-  }
-}
-
-/**
- * Convert audio to required format only if needed
- */
-async function convertAudioIfNeeded(audioPath: string, targetSampleRate = 16000): Promise<string> {
-  const needsConversion = await needsAudioConversion(audioPath, targetSampleRate);
-
-  if (!needsConversion) {
-    console.log("Audio already in correct format, skipping conversion");
-    return audioPath;
-  }
-
-  const wavPath = `${audioPath}.converted.wav`;
-  console.log("Converting audio to compatible format...");
-  await execAsync(`"${FFMPEG_PATH}" -y -i "${audioPath}" -ar ${targetSampleRate} -ac 1 -c:a pcm_s16le "${wavPath}"`);
-  console.log("Audio conversion completed");
-  return wavPath;
-}
+// Audio format optimization: Since we control the recording format with sox,
+// we record directly in the correct format (16kHz mono 16-bit PCM) and eliminate
+// all conversion logic. This removes the need for ffmpeg analysis and conditional conversion.
 
 /**
  * Transcribe audio using Parakeet
@@ -805,8 +767,8 @@ export async function transcribeWithParakeet(audioPath: string, modelId: string,
       throw new Error("uv is required to run Parakeet");
     }
 
-    // Convert audio to compatible format only if needed
-    const wavPath = await convertAudioIfNeeded(audioPath);
+    // Audio is already in correct format from sox recording
+    const wavPath = audioPath;
 
     // Use uv tool run to execute Parakeet CLI with proper PATH and output directory
     console.log(`Using uv at: ${uvPath}`);
@@ -847,14 +809,7 @@ export async function transcribeWithParakeet(audioPath: string, modelId: string,
       text = stdout.trim();
     }
 
-    // Clean up converted file only if we created it
-    if (wavPath !== audioPath) {
-      try {
-        fs.unlinkSync(wavPath);
-      } catch (error) {
-        console.warn("Could not delete converted audio file:", error);
-      }
-    }
+    // No cleanup needed since we use the original file directly
 
     if (!text) {
       throw new Error("Parakeet produced empty output");
@@ -907,8 +862,8 @@ export async function transcribeWithWhisper(audioPath: string, model: string, la
   }
 
   try {
-    // Convert audio to the correct format for Whisper only if needed
-    const wavPath = await convertAudioIfNeeded(audioPath);
+    // Audio is already in correct format from sox recording
+    const wavPath = audioPath;
 
     // Build Whisper command with all necessary options
     const languageParam = language && language !== "auto" ? ` -l ${language}` : "";
@@ -925,14 +880,7 @@ export async function transcribeWithWhisper(audioPath: string, model: string, la
     console.log("Whisper stdout length:", stdout.length);
     console.log("Whisper stdout preview:", stdout.substring(0, 200));
 
-    // Clean up converted file only if we created it
-    if (wavPath !== audioPath) {
-      try {
-        fs.unlinkSync(wavPath);
-      } catch (error) {
-        console.warn("Could not delete converted audio file:", error);
-      }
-    }
+    // No cleanup needed since we use the original file directly
 
     const text = stdout.trim();
     if (!text) {
