@@ -37,8 +37,16 @@ const WHISPER_MODEL_OPTIONS = [
 ];
 
 const PARAKEET_MODEL_OPTIONS = [
-  { value: "parakeet-tdt-0.6b-v2", title: "Parakeet TDT 0.6B v2 (600M params, Fast, English only)", isDownloaded: false },
-  { value: "parakeet-rnnt-1.1b", title: "Parakeet RNNT 1.1B (1100M params, Higher accuracy, English only)", isDownloaded: false },
+  {
+    value: "parakeet-tdt-0.6b-v2",
+    title: "Parakeet TDT 0.6B v2 (600M params, Fast, English only)",
+    isDownloaded: false,
+  },
+  {
+    value: "parakeet-rnnt-1.1b",
+    title: "Parakeet RNNT 1.1B (1100M params, Higher accuracy, English only)",
+    isDownloaded: false,
+  },
 ];
 
 const TRANSCRIBE_MODEL_OPTIONS = [

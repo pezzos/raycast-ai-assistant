@@ -31,16 +31,18 @@ export default function Command() {
   async function loadModels() {
     setIsLoading(true);
     console.log("=== Starting loadModels function ===");
-    
+
     try {
       console.log("Step 1: Checking Whisper binary...");
       const whisperCheckStart = Date.now();
       const whisperInstalled = await Promise.race([
         isWhisperBinaryWorking(),
-        new Promise<boolean>((resolve) => setTimeout(() => {
-          console.log("Whisper check timed out after 3s");
-          resolve(false);
-        }, 3000))
+        new Promise<boolean>((resolve) =>
+          setTimeout(() => {
+            console.log("Whisper check timed out after 3s");
+            resolve(false);
+          }, 3000),
+        ),
       ]);
       console.log(`Whisper check completed in ${Date.now() - whisperCheckStart}ms:`, whisperInstalled);
 
@@ -48,27 +50,29 @@ export default function Command() {
       const parakeetCheckStart = Date.now();
       const parakeetInstalled = await Promise.race([
         isParakeetInstalled(),
-        new Promise<boolean>((resolve) => setTimeout(() => {
-          console.log("Parakeet check timed out after 3s");
-          resolve(false);
-        }, 3000))
+        new Promise<boolean>((resolve) =>
+          setTimeout(() => {
+            console.log("Parakeet check timed out after 3s");
+            resolve(false);
+          }, 3000),
+        ),
       ]);
       console.log(`Parakeet check completed in ${Date.now() - parakeetCheckStart}ms:`, parakeetInstalled);
-      
+
       setEngineStatus({ whisper: whisperInstalled, parakeet: parakeetInstalled });
 
       console.log("Step 3: Getting available models...");
       const modelsStart = Date.now();
-      
+
       // Load models with shorter timeout to prevent hanging
       const availableModels = await Promise.race([
         getAvailableLocalModels(),
-        new Promise<never>((_, reject) => 
+        new Promise<never>((_, reject) =>
           setTimeout(() => {
             console.log("Model loading timed out after 5s");
             reject(new Error("Timeout loading models"));
-          }, 5000)
-        )
+          }, 5000),
+        ),
       ]);
 
       console.log(`Models loaded in ${Date.now() - modelsStart}ms:`, availableModels.length);
@@ -142,7 +146,7 @@ export default function Command() {
                 <Action title="Install Whisper" onAction={handleInstallWhisper} icon={Icon.Download} />
                 {isAppleSiliconCompatible() && (
                   <Action
-                    title="Install Parakeet (Apple Silicon)"
+                    title="Install Parakeet (apple Silicon)"
                     onAction={handleInstallParakeet}
                     icon={Icon.Download}
                   />

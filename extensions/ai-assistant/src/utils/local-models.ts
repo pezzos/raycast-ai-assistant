@@ -113,11 +113,7 @@ export function isWhisperInstalled(): boolean {
  */
 async function findUvBinary(): Promise<string | null> {
   // Common locations for uv (check synchronously first for speed)
-  const commonPaths = [
-    `${os.homedir()}/.local/bin/uv`,
-    "/usr/local/bin/uv",
-    "/opt/homebrew/bin/uv",
-  ];
+  const commonPaths = [`${os.homedir()}/.local/bin/uv`, "/usr/local/bin/uv", "/opt/homebrew/bin/uv"];
 
   // Check common paths first (fast synchronous check)
   for (const uvPath of commonPaths) {
@@ -145,7 +141,7 @@ async function findUvBinary(): Promise<string | null> {
         }
         return null;
       })(),
-      new Promise<null>((resolve) => setTimeout(() => resolve(null), 1000))
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), 1000)),
     ]);
   } catch {
     return null;
@@ -179,7 +175,7 @@ export async function isParakeetInstalled(): Promise<boolean> {
           }
         }
       })(),
-      new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 2000))
+      new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 2000)),
     ]);
   } catch {
     return false;
@@ -207,7 +203,7 @@ export async function isParakeetModelDownloaded(modelId: string): Promise<boolea
     // because Parakeet automatically downloads models on first use
     const isInstalled = await isParakeetInstalled();
     console.log(`Parakeet model ${modelId} check: CLI installed=${isInstalled}`);
-    
+
     return isInstalled;
   } catch (error) {
     console.warn(`Error checking Parakeet model ${modelId}:`, error);
@@ -491,21 +487,26 @@ export async function downloadParakeetModel(modelId: string): Promise<void> {
     // Test Parakeet with a quick audio file to trigger model download if needed
     const tempDir = os.tmpdir();
     const testAudioPath = path.join(tempDir, `parakeet_test_${Date.now()}.wav`);
-    
+
     try {
       // Create a very short test audio file (1 second of silence)
-      await execAsync(`ffmpeg -y -f lavfi -i "anullsrc=duration=1:sample_rate=16000" -c:a pcm_s16le "${testAudioPath}"`);
-      
+      await execAsync(
+        `ffmpeg -y -f lavfi -i "anullsrc=duration=1:sample_rate=16000" -c:a pcm_s16le "${testAudioPath}"`,
+      );
+
       toast.message = "Testing model (this may download the model automatically)...";
-      
+
       // Run Parakeet on the test file via uv with proper PATH - this will download the model if not already cached
-      await execAsync(`export PATH="/opt/homebrew/bin:$PATH" && "${uvPath}" tool run --from parakeet-mlx parakeet-mlx --output-dir "${tempDir}" --output-format txt "${testAudioPath}"`, { shell: "/bin/zsh" });
-      
+      await execAsync(
+        `export PATH="/opt/homebrew/bin:$PATH" && "${uvPath}" tool run --from parakeet-mlx parakeet-mlx --output-dir "${tempDir}" --output-format txt "${testAudioPath}"`,
+        { shell: "/bin/zsh" },
+      );
+
       // Clean up test files
       try {
         fs.unlinkSync(testAudioPath);
         // Remove any generated transcript files
-        const testBasename = path.basename(testAudioPath, '.wav');
+        const testBasename = path.basename(testAudioPath, ".wav");
         const transcriptPath = path.join(tempDir, `${testBasename}.txt`);
         if (fs.existsSync(transcriptPath)) {
           fs.unlinkSync(transcriptPath);
@@ -513,7 +514,6 @@ export async function downloadParakeetModel(modelId: string): Promise<void> {
       } catch (cleanupError) {
         console.warn("Cleanup warning:", cleanupError);
       }
-      
     } catch (testError) {
       // Clean up on error
       try {
@@ -633,7 +633,7 @@ export async function getAvailableLocalModels(): Promise<LocalModel[]> {
   for (const [modelId] of Object.entries(WHISPER_MODELS)) {
     const isDownloaded = isWhisperModelDownloaded(modelId);
     console.log(`Whisper model ${modelId}: downloaded=${isDownloaded}`);
-    
+
     models.push({
       id: `whisper-${modelId}`,
       name: `Whisper ${modelId.charAt(0).toUpperCase() + modelId.slice(1)}`,
@@ -649,18 +649,22 @@ export async function getAvailableLocalModels(): Promise<LocalModel[]> {
   for (const [modelId, model] of Object.entries(PARAKEET_MODELS)) {
     console.log(`Checking Parakeet model ${modelId}...`);
     let isInstalled = false;
-    
+
     try {
       const checkStart = Date.now();
       // Add shorter timeout to prevent hanging
       isInstalled = await Promise.race([
         isParakeetModelDownloaded(modelId),
-        new Promise<boolean>((resolve) => setTimeout(() => {
-          console.log(`Parakeet model ${modelId} check timed out after 2s`);
-          resolve(false);
-        }, 2000))
+        new Promise<boolean>((resolve) =>
+          setTimeout(() => {
+            console.log(`Parakeet model ${modelId} check timed out after 2s`);
+            resolve(false);
+          }, 2000),
+        ),
       ]);
-      console.log(`Parakeet model ${modelId} check completed in ${Date.now() - checkStart}ms: installed=${isInstalled}`);
+      console.log(
+        `Parakeet model ${modelId} check completed in ${Date.now() - checkStart}ms: installed=${isInstalled}`,
+      );
     } catch (error) {
       console.warn(`Failed to check Parakeet model ${modelId}:`, error);
       isInstalled = false;
@@ -708,8 +712,12 @@ export async function transcribeWithParakeet(audioPath: string, modelId: string,
 
   // Check language compatibility
   if (language && language !== "auto" && model.languages && !model.languages.includes(language)) {
-    console.warn(`Parakeet model ${modelId} does not support language ${language}. Supported languages: ${model.languages.join(", ")}`);
-    throw new Error(`Parakeet model ${model.name} only supports: ${model.languages.join(", ")}. For other languages, please use Whisper or OpenAI models.`);
+    console.warn(
+      `Parakeet model ${modelId} does not support language ${language}. Supported languages: ${model.languages.join(", ")}`,
+    );
+    throw new Error(
+      `Parakeet model ${model.name} only supports: ${model.languages.join(", ")}. For other languages, please use Whisper or OpenAI models.`,
+    );
   }
 
   const isParakeetReady = await isParakeetInstalled();
@@ -735,7 +743,7 @@ export async function transcribeWithParakeet(audioPath: string, modelId: string,
     const outputDir = os.tmpdir(); // Use temp directory for output files
     const parakeetCommand = `export PATH="/opt/homebrew/bin:$PATH" && "${uvPath}" tool run --from parakeet-mlx parakeet-mlx --output-dir "${outputDir}" --output-format txt "${wavPath}"`;
     console.log("Executing Parakeet command:", parakeetCommand);
-    
+
     const { stdout, stderr } = await execAsync(parakeetCommand, { shell: "/bin/zsh" });
 
     if (stderr) {
@@ -746,16 +754,16 @@ export async function transcribeWithParakeet(audioPath: string, modelId: string,
     console.log("Parakeet stdout preview:", stdout.substring(0, 200));
 
     // Read the generated text file
-    const audioBasename = path.basename(wavPath, '.wav');
+    const audioBasename = path.basename(wavPath, ".wav");
     const outputFile = path.join(outputDir, `${audioBasename}.txt`);
-    
+
     let text = "";
     try {
       if (fs.existsSync(outputFile)) {
-        text = fs.readFileSync(outputFile, 'utf8').trim();
+        text = fs.readFileSync(outputFile, "utf8").trim();
         console.log("Read transcription from file:", outputFile);
         console.log("Transcription text length:", text.length);
-        
+
         // Clean up the output file
         fs.unlinkSync(outputFile);
       } else {

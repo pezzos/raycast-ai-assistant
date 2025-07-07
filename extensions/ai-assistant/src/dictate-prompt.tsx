@@ -11,6 +11,9 @@ import {
   USE_PERSONAL_DICTIONARY_KEY,
   WHISPER_MODE_KEY,
   TRANSCRIBE_MODEL_KEY,
+  WHISPER_MODEL_KEY,
+  PARAKEET_MODEL_KEY,
+  LOCAL_ENGINE_KEY,
 } from "./settings";
 import { setSystemAudioMute, isSystemAudioMuted } from "./utils/audio";
 import { measureTime } from "./utils/timing";
@@ -18,6 +21,7 @@ import { startPeriodicNotification, stopPeriodicNotification } from "./utils/tim
 import { addTranscriptionToHistory, getRecordingsToKeep } from "./utils/transcription-history";
 import { getActiveApplication } from "./utils/active-app";
 import { getPersonalDictionaryPrompt } from "./utils/dictionary";
+import { isLocalTranscriptionAvailable, transcribeAudio, type ModelEngine } from "./utils/local-models";
 
 const execAsync = promisify(exec);
 const SOX_PATH = "/opt/homebrew/bin/sox";
@@ -140,6 +144,15 @@ export default async function Command() {
     const savedTranscribeModel = await LocalStorage.getItem<string>(TRANSCRIBE_MODEL_KEY);
     const transcribeModel = savedTranscribeModel || "gpt-4o-mini-transcribe";
 
+    const savedLocalEngine = await LocalStorage.getItem<string>(LOCAL_ENGINE_KEY);
+    const localEngine = (savedLocalEngine as ModelEngine) || "whisper";
+
+    const savedWhisperModel = await LocalStorage.getItem<string>(WHISPER_MODEL_KEY);
+    const whisperModel = savedWhisperModel || "base";
+
+    const savedParakeetModel = await LocalStorage.getItem<string>(PARAKEET_MODEL_KEY);
+    const parakeetModel = savedParakeetModel || "parakeet-tdt-0.6b-v2";
+
     const savedUsePersonalDictionary = await LocalStorage.getItem<string>(USE_PERSONAL_DICTIONARY_KEY);
     const usePersonalDictionary = savedUsePersonalDictionary === "true";
 
@@ -148,6 +161,19 @@ export default async function Command() {
 
     const savedSilenceTimeout = await LocalStorage.getItem<string>(SILENCE_TIMEOUT_KEY);
     const silenceTimeout = savedSilenceTimeout || "2.0";
+
+    // Check if local model is available if needed
+    if (whisperMode === "local") {
+      const currentModelId = localEngine === "whisper" ? whisperModel : parakeetModel;
+      const isAvailable = await isLocalTranscriptionAvailable(localEngine, currentModelId);
+
+      if (!isAvailable) {
+        const engineName = localEngine === "whisper" ? "Whisper" : "Parakeet";
+        throw new Error(
+          `${engineName} engine or model ${currentModelId} is not available - Please install from the Local Models menu`,
+        );
+      }
+    }
 
     // Initialize OpenAI
     const openai = new OpenAI({
@@ -209,7 +235,15 @@ export default async function Command() {
 
     let transcription: Transcription;
 
-    if (whisperMode === "transcribe") {
+    if (whisperMode === "local") {
+      const engineDisplayName = localEngine === "whisper" ? "Whisper" : "Parakeet";
+      const currentModelId = localEngine === "whisper" ? whisperModel : parakeetModel;
+
+      transcription = await measureTime(`Local ${engineDisplayName} transcription`, async () => {
+        const text = await transcribeAudio(outputPath, localEngine, currentModelId, undefined);
+        return { text };
+      });
+    } else if (whisperMode === "transcribe") {
       transcription = await measureTime("GPT-4o Transcribe", async () => {
         return await openai.audio.transcriptions.create({
           file: fs.createReadStream(outputPath),
@@ -227,8 +261,15 @@ export default async function Command() {
 
     // Add to history
     await addTranscriptionToHistory(prompt, "prompt", outputPath, {
-      mode: whisperMode === "transcribe" ? "transcribe" : "online",
-      model: whisperMode === "transcribe" ? transcribeModel : undefined,
+      mode: whisperMode === "transcribe" ? "transcribe" : whisperMode === "local" ? "local" : "online",
+      model:
+        whisperMode === "transcribe"
+          ? transcribeModel
+          : whisperMode === "local"
+            ? localEngine === "whisper"
+              ? whisperModel
+              : parakeetModel
+            : undefined,
       textCorrectionEnabled: false, // No text correction for prompt mode
       targetLanguage: "prompt",
       activeApp: await getActiveApplication(),

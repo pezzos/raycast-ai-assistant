@@ -76,10 +76,7 @@ export default async function Command() {
 
   try {
     // Load settings and check parallel conditions
-    const [preferences, audioMuteState] = await Promise.all([
-      getPreferenceValues<Preferences>(),
-      isSystemAudioMuted(),
-    ]);
+    const [preferences, audioMuteState] = await Promise.all([getPreferenceValues<Preferences>(), isSystemAudioMuted()]);
 
     // Apply settings
     const savedFixText = await LocalStorage.getItem<string>(FIX_TEXT_KEY);
