@@ -8,7 +8,7 @@ import {
   DICTATE_TARGET_LANG_KEY,
   WHISPER_MODE_KEY,
   WHISPER_MODEL_KEY,
-  EXPERIMENTAL_SINGLE_CALL_KEY,
+  TRANSCRIBE_MODEL_KEY,
   SILENCE_TIMEOUT_KEY,
   USE_PERSONAL_DICTIONARY_KEY,
   MUTE_DURING_DICTATION_KEY,
@@ -83,13 +83,13 @@ export default async function Command() {
     const targetLanguage = savedTargetLang || "auto";
 
     const savedWhisperMode = await LocalStorage.getItem<string>(WHISPER_MODE_KEY);
-    const whisperMode = savedWhisperMode || "online";
+    const whisperMode = savedWhisperMode || "transcribe";
 
     const savedWhisperModel = await LocalStorage.getItem<string>(WHISPER_MODEL_KEY);
     const whisperModel = savedWhisperModel || "base";
 
-    const savedExperimentalSingleCall = await LocalStorage.getItem<string>(EXPERIMENTAL_SINGLE_CALL_KEY);
-    const experimentalSingleCall = savedExperimentalSingleCall === "true";
+    const savedTranscribeModel = await LocalStorage.getItem<string>(TRANSCRIBE_MODEL_KEY);
+    const transcribeModel = savedTranscribeModel || "gpt-4o-mini-transcribe";
 
     const savedSilenceTimeout = await LocalStorage.getItem<string>(SILENCE_TIMEOUT_KEY);
     const silenceTimeout = savedSilenceTimeout || "2.0";
@@ -102,7 +102,7 @@ export default async function Command() {
 
     console.log("⚙️ Configuration:", {
       mode: whisperMode,
-      model: whisperMode === "local" ? whisperModel : experimentalSingleCall ? "gpt-4o-audio-preview" : "whisper-1",
+      model: whisperMode === "local" ? whisperModel : whisperMode === "transcribe" ? transcribeModel : "whisper-1",
       targetLanguage,
       fixText: preferences.fixText,
       usePersonalDictionary,
@@ -174,55 +174,20 @@ export default async function Command() {
         );
         return { text };
       });
+    } else if (whisperMode === "transcribe") {
+      transcription = await measureTime("gpt-4o Transcribe", async () => {
+        return await openai.audio.transcriptions.create({
+          file: fs.createReadStream(outputPath),
+          model: transcribeModel,
+          language: targetLanguage === "auto" ? undefined : targetLanguage,
+        });
+      });
     } else {
-      if (experimentalSingleCall) {
-        transcription = await measureTime("GPT-4o-audio-preview transcription", async () => {
-          const audioBuffer = fs.readFileSync(outputPath);
-          const base64Audio = audioBuffer.toString("base64");
-
-          const dictionaryPrompt = usePersonalDictionary ? await getPersonalDictionaryPrompt() : "";
-
-          const completion = await openai.chat.completions.create({
-            model: "gpt-4o-audio-preview",
-            modalities: ["text"],
-            messages: [
-              {
-                role: "user",
-                content: [
-                  {
-                    type: "text",
-                    text: `Transcribe this audio${
-                      targetLanguage === "auto" ? " in the same language as the audio input" : ` in ${targetLanguage}`
-                    }. ${preferences.fixText ? "Fix any grammar or spelling issues while keeping the same language." : ""}${
-                      dictionaryPrompt ? "\n\n" + dictionaryPrompt : ""
-                    }`,
-                  },
-                  { type: "input_audio", input_audio: { data: base64Audio, format: "wav" } },
-                ],
-              },
-            ],
-          });
-
-          const result = completion.choices[0]?.message?.content;
-          if (typeof result === "string") {
-            return { text: result };
-          } else {
-            throw new Error("Unexpected response format from GPT-4o-audio-preview");
-          }
-        });
-      } else {
-        transcription = await measureTime("OpenAI Whisper transcription", async () => {
-          return await openai.audio.transcriptions.create({
-            file: fs.createReadStream(outputPath),
-            model: "whisper-1",
-            language: targetLanguage === "auto" ? undefined : targetLanguage,
-          });
-        });
-      }
+      throw new Error("Invalid whisper mode configuration. Please check your settings.");
     }
 
     // Apply personal dictionary corrections if enabled, regardless of transcription mode
-    if (usePersonalDictionary && !experimentalSingleCall) {
+    if (usePersonalDictionary) {
       transcription = await measureTime("Personal dictionary corrections", async () => {
         const dictionaryPrompt = await getPersonalDictionaryPrompt();
         if (dictionaryPrompt) {
@@ -252,7 +217,7 @@ export default async function Command() {
 
     // Clean up the transcription if needed
     let finalText = transcription.text;
-    if (preferences.fixText && !experimentalSingleCall) {
+    if (preferences.fixText) {
       await showHUD("✍️ Improving text...");
       startPeriodicNotification("✍️ Improving text");
       finalText = await measureTime("Text improvement", async () => {
@@ -263,15 +228,21 @@ export default async function Command() {
 
     // Add to history
     await addTranscriptionToHistory(finalText, targetLanguage, outputPath, {
-      mode: experimentalSingleCall ? "gpt4" : whisperMode === "local" ? "local" : "online",
-      model: whisperMode === "local" ? whisperModel : undefined,
+      mode: experimentalSingleCall
+        ? "gpt4"
+        : whisperMode === "local"
+          ? "local"
+          : whisperMode === "transcribe"
+            ? "transcribe"
+            : "online",
+      model: whisperMode === "local" ? whisperModel : whisperMode === "transcribe" ? transcribeModel : undefined,
       textCorrectionEnabled: preferences.fixText,
       targetLanguage,
       activeApp: await getActiveApplication(),
     });
 
     // Translate if needed
-    if (targetLanguage !== "auto" && !experimentalSingleCall) {
+    if (targetLanguage !== "auto") {
       await showHUD(`🌐 Translating to ${targetLanguage}...`);
       startPeriodicNotification(`Translating to ${targetLanguage}`);
 

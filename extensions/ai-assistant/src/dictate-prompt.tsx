@@ -8,9 +8,10 @@ import { cleanText, getLLMModel, getSelectedText, replaceSelectedText } from "./
 import {
   SILENCE_TIMEOUT_KEY,
   MUTE_DURING_DICTATION_KEY,
-  EXPERIMENTAL_SINGLE_CALL_KEY,
   USE_PERSONAL_DICTIONARY_KEY,
   FIX_TEXT_KEY,
+  WHISPER_MODE_KEY,
+  TRANSCRIBE_MODEL_KEY,
 } from "./settings";
 import { setSystemAudioMute, isSystemAudioMuted } from "./utils/audio";
 import { measureTime } from "./utils/timing";
@@ -140,8 +141,11 @@ export default async function Command() {
     const savedFixText = await LocalStorage.getItem<string>(FIX_TEXT_KEY);
     preferences.fixText = savedFixText === "true";
 
-    const savedExperimentalSingleCall = await LocalStorage.getItem<string>(EXPERIMENTAL_SINGLE_CALL_KEY);
-    const experimentalSingleCall = savedExperimentalSingleCall === "true";
+    const savedWhisperMode = await LocalStorage.getItem<string>(WHISPER_MODE_KEY);
+    const whisperMode = savedWhisperMode || "transcribe";
+
+    const savedTranscribeModel = await LocalStorage.getItem<string>(TRANSCRIBE_MODEL_KEY);
+    const transcribeModel = savedTranscribeModel || "gpt-4o-mini-transcribe";
 
     const savedUsePersonalDictionary = await LocalStorage.getItem<string>(USE_PERSONAL_DICTIONARY_KEY);
     const usePersonalDictionary = savedUsePersonalDictionary === "true";
@@ -212,58 +216,22 @@ export default async function Command() {
 
     let transcription: Transcription;
 
-    if (experimentalSingleCall) {
-      transcription = await measureTime("GPT-4o-audio-preview transcription", async () => {
-        const audioBuffer = fs.readFileSync(outputPath);
-        const base64Audio = audioBuffer.toString("base64");
-
-        const dictionaryPrompt = usePersonalDictionary ? await getPersonalDictionaryPrompt() : "";
-        const contextPrompt = selectedText
-          ? `Process this audio as a command to modify the following text: "${selectedText}". ${
-              preferences.fixText ? "Fix any grammar or spelling issues while keeping the same language." : ""
-            }${dictionaryPrompt ? "\n\n" + dictionaryPrompt : ""}`
-          : `Process this audio as a command to generate text. ${
-              preferences.fixText ? "Fix any grammar or spelling issues while keeping the same language." : ""
-            }${dictionaryPrompt ? "\n\n" + dictionaryPrompt : ""}`;
-
-        const completion = await openai.chat.completions.create({
-          model: "gpt-4o-audio-preview",
-          modalities: ["text"],
-          messages: [
-            {
-              role: "user",
-              content: [
-                {
-                  type: "text",
-                  text: contextPrompt,
-                },
-                { type: "input_audio", input_audio: { data: base64Audio, format: "wav" } },
-              ],
-            },
-          ],
-        });
-
-        const result = completion.choices[0]?.message?.content;
-        if (typeof result === "string") {
-          return { text: result };
-        } else {
-          throw new Error("Unexpected response format from GPT-4o-audio-preview");
-        }
-      });
-    } else {
-      transcription = await measureTime("OpenAI Whisper transcription", async () => {
+    if (whisperMode === "transcribe") {
+      transcription = await measureTime("GPT-4o Transcribe", async () => {
         return await openai.audio.transcriptions.create({
           file: fs.createReadStream(outputPath),
-          model: "whisper-1",
+          model: transcribeModel,
         });
       });
+    } else {
+      throw new Error("Invalid whisper mode configuration. Please check your settings.");
     }
 
     stopPeriodicNotification();
 
     // Clean up the transcription if needed
     let prompt = transcription.text;
-    if (preferences.fixText && !experimentalSingleCall) {
+    if (preferences.fixText) {
       await showHUD("✍️ Improving prompt...");
       startPeriodicNotification("✍️ Improving prompt");
       prompt = await measureTime("Text improvement", async () => {
@@ -274,7 +242,8 @@ export default async function Command() {
 
     // Add to history
     await addTranscriptionToHistory(prompt, "prompt", outputPath, {
-      mode: experimentalSingleCall ? "gpt4" : "online",
+      mode: whisperMode === "transcribe" ? "transcribe" : "online",
+      model: whisperMode === "transcribe" ? transcribeModel : undefined,
       textCorrectionEnabled: preferences.fixText,
       targetLanguage: "prompt",
       activeApp: await getActiveApplication(),

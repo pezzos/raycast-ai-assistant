@@ -6,7 +6,7 @@ import { LANGUAGE_OPTIONS } from "./constants";
 export const DICTATE_TARGET_LANG_KEY = "dictate-target-language";
 export const WHISPER_MODE_KEY = "whisper-mode";
 export const WHISPER_MODEL_KEY = "whisper-model";
-export const EXPERIMENTAL_SINGLE_CALL_KEY = "experimental-single-call";
+export const TRANSCRIBE_MODEL_KEY = "transcribe-model";
 export const PRIMARY_LANG_KEY = "primary-language";
 export const SECONDARY_LANG_KEY = "secondary-language";
 export const LLM_MODEL_KEY = "llm-model";
@@ -18,8 +18,8 @@ export const MUTE_DURING_DICTATION_KEY = "mute-during-dictation";
 export const USE_CACHE_KEY = "use-cache";
 
 const WHISPER_MODE_OPTIONS = [
-  { value: "online", title: "Online (OpenAI API)" },
-  { value: "local", title: "Local (Faster, Offline)" },
+  { value: "transcribe", title: "Online (gpt-4o Transcribe)" },
+  { value: "local", title: "Local (Offline Whisper)" },
 ];
 
 const WHISPER_MODEL_OPTIONS = [
@@ -29,9 +29,16 @@ const WHISPER_MODEL_OPTIONS = [
   { value: "medium", title: "Medium (Most Accurate)", isDownloaded: false },
 ];
 
+const TRANSCRIBE_MODEL_OPTIONS = [
+  { value: "gpt-4o-transcribe", title: "gpt-4o Transcribe (Most Capable)" },
+  { value: "gpt-4o-mini-transcribe", title: "gpt-4o Mini Transcribe (Fast & Efficient)" },
+];
+
 const MODEL_OPTIONS = [
   { value: "gpt-4o", title: "GPT-4o (Most Capable)" },
   { value: "gpt-4o-mini", title: "GPT-4o Mini (Fastest/Recommended)" },
+  { value: "gpt-4.1-nano", title: "GPT-4.1 Nano (Ultra Fast)" },
+  { value: "gpt-4.1-mini", title: "GPT-4.1 Mini (Fast & Efficient)" },
   { value: "o1", title: "o1 (Most Powerful reasoning model)" },
   { value: "o1-mini", title: "o1-mini (Smaller reasoning model)" },
 ];
@@ -41,11 +48,11 @@ export default function Command() {
   const [primaryLanguage, setPrimaryLanguage] = useState<string>("en");
   const [secondaryLanguage, setSecondaryLanguage] = useState<string>("fr");
   const [llmModel, setLlmModel] = useState<string>("gpt-4o-mini");
-  const [whisperMode, setWhisperMode] = useState<string>("online");
+  const [whisperMode, setWhisperMode] = useState<string>("transcribe");
   const [whisperModel, setWhisperModel] = useState<string>("base");
+  const [transcribeModel, setTranscribeModel] = useState<string>("gpt-4o-mini-transcribe");
   const [fixText, setFixText] = useState<boolean>(true);
   const [showExploreMore, setShowExploreMore] = useState<boolean>(true);
-  const [experimentalSingleCall, setExperimentalSingleCall] = useState<boolean>(false);
   const [silenceTimeout, setSilenceTimeout] = useState<string>("2.0");
   const [usePersonalDictionary, setUsePersonalDictionary] = useState<boolean>(false);
   const [useCache, setUseCache] = useState<boolean>(true);
@@ -59,10 +66,10 @@ export default function Command() {
       const savedSecondaryLang = await LocalStorage.getItem<string>(SECONDARY_LANG_KEY);
       const savedWhisperMode = await LocalStorage.getItem<string>(WHISPER_MODE_KEY);
       const savedWhisperModel = await LocalStorage.getItem<string>(WHISPER_MODEL_KEY);
+      const savedTranscribeModel = await LocalStorage.getItem<string>(TRANSCRIBE_MODEL_KEY);
       const savedLlmModel = await LocalStorage.getItem<string>(LLM_MODEL_KEY);
       const savedFixText = await LocalStorage.getItem<string>(FIX_TEXT_KEY);
       const savedShowExploreMore = await LocalStorage.getItem<string>(SHOW_EXPLORE_MORE_KEY);
-      const savedExperimentalSingleCall = await LocalStorage.getItem<string>(EXPERIMENTAL_SINGLE_CALL_KEY);
       const savedSilenceTimeout = await LocalStorage.getItem<string>(SILENCE_TIMEOUT_KEY);
       const savedUsePersonalDictionary = await LocalStorage.getItem<string>(USE_PERSONAL_DICTIONARY_KEY);
       const savedUseCache = await LocalStorage.getItem<string>(USE_CACHE_KEY);
@@ -78,10 +85,10 @@ export default function Command() {
       if (savedSecondaryLang) setSecondaryLanguage(savedSecondaryLang);
       if (savedWhisperMode) setWhisperMode(savedWhisperMode);
       if (savedWhisperModel) setWhisperModel(savedWhisperModel);
+      if (savedTranscribeModel) setTranscribeModel(savedTranscribeModel);
       if (savedLlmModel) setLlmModel(savedLlmModel);
       if (savedFixText) setFixText(savedFixText === "true");
       if (savedShowExploreMore) setShowExploreMore(savedShowExploreMore === "true");
-      if (savedExperimentalSingleCall) setExperimentalSingleCall(savedExperimentalSingleCall === "true");
       if (savedSilenceTimeout) setSilenceTimeout(savedSilenceTimeout);
       if (savedUsePersonalDictionary) setUsePersonalDictionary(savedUsePersonalDictionary === "true");
       if (savedUseCache !== null) setUseCache(savedUseCache === "true");
@@ -99,10 +106,10 @@ export default function Command() {
       LocalStorage.setItem(SECONDARY_LANG_KEY, secondaryLanguage),
       LocalStorage.setItem(WHISPER_MODE_KEY, whisperMode),
       LocalStorage.setItem(WHISPER_MODEL_KEY, whisperModel),
+      LocalStorage.setItem(TRANSCRIBE_MODEL_KEY, transcribeModel),
       LocalStorage.setItem(LLM_MODEL_KEY, llmModel),
       LocalStorage.setItem(FIX_TEXT_KEY, fixText.toString()),
       LocalStorage.setItem(SHOW_EXPLORE_MORE_KEY, showExploreMore.toString()),
-      LocalStorage.setItem(EXPERIMENTAL_SINGLE_CALL_KEY, experimentalSingleCall.toString()),
       LocalStorage.setItem(SILENCE_TIMEOUT_KEY, silenceTimeout),
       LocalStorage.setItem(USE_PERSONAL_DICTIONARY_KEY, usePersonalDictionary.toString()),
       LocalStorage.setItem(USE_CACHE_KEY, useCache.toString()),
@@ -179,15 +186,21 @@ export default function Command() {
         ))}
       </Form.Dropdown>
 
-      {whisperMode === "online" && (
-        <Form.Checkbox
-          id="experimentalSingleCall"
-          label="Use experimental single API call mode"
-          title="Experimental Mode"
-          info="Send audio directly to GPT-4o-mini-audio-preview for faster processing (experimental)"
-          value={experimentalSingleCall}
-          onChange={setExperimentalSingleCall}
-        />
+      {whisperMode === "transcribe" && (
+        <>
+          <Form.Dropdown
+            id="transcribeModel"
+            title="Transcription Model"
+            info="Select the gpt-4o transcription model to use"
+            value={transcribeModel}
+            onChange={setTranscribeModel}
+          >
+            {TRANSCRIBE_MODEL_OPTIONS.map((model) => (
+              <Form.Dropdown.Item key={model.value} value={model.value} title={model.title} />
+            ))}
+          </Form.Dropdown>
+          <Form.Description text="gpt-4o Transcribe models provide specialized speech-to-text capabilities with enhanced accuracy." />
+        </>
       )}
 
       {whisperMode === "local" && (

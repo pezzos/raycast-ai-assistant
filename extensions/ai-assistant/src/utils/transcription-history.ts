@@ -10,7 +10,7 @@ export interface TranscriptionRecord {
   recordingPath: string;
   transcribed: boolean;
   transcriptionDetails?: {
-    mode: "local" | "online" | "gpt4";
+    mode: "local" | "online" | "gpt4" | "transcribe";
     model?: string;
     textCorrectionEnabled: boolean;
     targetLanguage: string;
@@ -156,6 +156,9 @@ export function formatTranscriptionDetails(record: TranscriptionRecord): string 
       break;
     case "gpt4":
       markdown += `GPT-4 Audio\n`;
+      break;
+    case "transcribe":
+      markdown += `gpt-4o Transcribe (Model: ${details.model})\n`;
       break;
   }
 
