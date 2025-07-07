@@ -1,10 +1,10 @@
-import { showHUD, getPreferenceValues, LocalStorage } from "@raycast/api";
-import OpenAI from "openai";
+import { showHUD, LocalStorage } from "@raycast/api";
 import { getSelectedText, replaceSelectedText, getLLMModel } from "./utils/common";
-import { PRIMARY_LANG_KEY, SECONDARY_LANG_KEY, FIX_TEXT_KEY } from "./settings";
+import { FIX_TEXT_KEY } from "./settings";
 import { LANGUAGE_OPTIONS } from "./constants";
 import SettingsManager from "./utils/settings-manager";
 import OpenAIClientManager from "./utils/openai-client";
+import { performanceProfiler } from "./utils/performance-profiler";
 
 // Debug logging function
 function log(message: string, data?: unknown) {
@@ -15,14 +15,14 @@ function getLanguageName(code: string): string {
   return LANGUAGE_OPTIONS.find((lang) => lang.value === code)?.title || code;
 }
 
-interface Preferences {
-  openaiApiKey: string;
-}
 
 // Cache for translations
 const translationCache = new Map<string, string>();
 
 export default async function Command() {
+  // Démarre le profiling de session
+  await performanceProfiler.startSession("translate");
+
   try {
     // Load settings and initialize OpenAI client in parallel
     const [settings, openai, selectedText] = await Promise.all([

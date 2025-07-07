@@ -16,12 +16,13 @@ import {
   LOCAL_ENGINE_KEY,
 } from "./settings";
 import { setSystemAudioMute, isSystemAudioMuted } from "./utils/audio";
-import { measureTime } from "./utils/timing";
+import { measureTimeAdvanced } from "./utils/timing";
 import { startPeriodicNotification, stopPeriodicNotification } from "./utils/timing";
 import { addTranscriptionToHistory, getRecordingsToKeep } from "./utils/transcription-history";
 import { getActiveApplication } from "./utils/active-app";
 import { getPersonalDictionaryPrompt } from "./utils/dictionary";
 import { isLocalTranscriptionAvailable, transcribeAudio, type ModelEngine } from "./utils/local-models";
+import { performanceProfiler } from "./utils/performance-profiler";
 
 const execAsync = promisify(exec);
 const SOX_PATH = "/opt/homebrew/bin/sox";
@@ -130,6 +131,9 @@ async function executePrompt(
 export default async function Command() {
   console.log("🎙️ Starting dictate-prompt command...");
 
+  // Démarre le profiling de session
+  await performanceProfiler.startSession("dictate-prompt");
+
   let originalMuteState = false;
   let muteDuringDictation = false;
 
@@ -212,16 +216,30 @@ export default async function Command() {
       await setSystemAudioMute(true);
     }
 
-    // Start recording
+    // Start recording with profiling
     await showHUD(`🎙️ Recording... (will stop after ${silenceTimeout}s of silence)`);
     console.log("Starting recording...");
 
-    const command = `
-      export PATH="/opt/homebrew/bin:$PATH";
-      "${SOX_PATH}" -d "${outputPath}" silence 1 0.1 0% 1 ${silenceTimeout} 2%
-    `;
+    const audioLength = await measureTimeAdvanced(
+      "audio-recording",
+      async () => {
+        const command = `
+        export PATH="/opt/homebrew/bin:$PATH";
+        "${SOX_PATH}" -d "${outputPath}" silence 1 0.1 0% 1 ${silenceTimeout} 2%
+      `;
 
-    await execAsync(command, { shell: "/bin/zsh" });
+        await execAsync(command, { shell: "/bin/zsh" });
+
+        // Mesure la taille du fichier audio
+        const stats = fs.statSync(outputPath);
+        return stats.size;
+      },
+      {
+        silenceTimeout: parseFloat(silenceTimeout),
+        mode: "recording",
+      },
+    );
+
     console.log("✅ Recording completed");
 
     // Restore original audio state if needed
@@ -236,20 +254,39 @@ export default async function Command() {
     let transcription: Transcription;
 
     if (whisperMode === "local") {
-      const engineDisplayName = localEngine === "whisper" ? "Whisper" : "Parakeet";
       const currentModelId = localEngine === "whisper" ? whisperModel : parakeetModel;
 
-      transcription = await measureTime(`Local ${engineDisplayName} transcription`, async () => {
-        const text = await transcribeAudio(outputPath, localEngine, currentModelId, undefined);
-        return { text };
-      });
+      transcription = await measureTimeAdvanced(
+        `local-${localEngine}-transcription`,
+        async () => {
+          const text = await transcribeAudio(outputPath, localEngine, currentModelId, undefined);
+          return { text };
+        },
+        {
+          mode: whisperMode,
+          engine: localEngine,
+          model: currentModelId,
+          audioLength: audioLength,
+          platform: process.platform,
+          arch: process.arch,
+        },
+      );
     } else if (whisperMode === "transcribe") {
-      transcription = await measureTime("GPT-4o Transcribe", async () => {
-        return await openai.audio.transcriptions.create({
-          file: fs.createReadStream(outputPath),
+      transcription = await measureTimeAdvanced(
+        "cloud-transcription",
+        async () => {
+          return await openai.audio.transcriptions.create({
+            file: fs.createReadStream(outputPath),
+            model: transcribeModel,
+          });
+        },
+        {
+          mode: whisperMode,
           model: transcribeModel,
-        });
-      });
+          audioLength: audioLength,
+          provider: "openai",
+        },
+      );
     } else {
       throw new Error("Invalid whisper mode configuration. Please check your settings.");
     }
@@ -279,9 +316,19 @@ export default async function Command() {
     await showHUD("🤖 Processing your request...");
     startPeriodicNotification("🤖 Processing your request");
 
-    const generatedText = await measureTime("Prompt execution", async () => {
-      return await executePrompt(prompt, selectedText, openai, usePersonalDictionary);
-    });
+    const generatedText = await measureTimeAdvanced(
+      "llm-prompt-execution",
+      async () => {
+        return await executePrompt(prompt, selectedText, openai, usePersonalDictionary);
+      },
+      {
+        promptLength: prompt.length,
+        hasSelectedText: !!selectedText,
+        selectedTextLength: selectedText?.length || 0,
+        usePersonalDictionary,
+        llmModel: getLLMModel(),
+      },
+    );
 
     stopPeriodicNotification();
 
@@ -295,6 +342,9 @@ export default async function Command() {
     }
 
     console.log("✨ Operation completed successfully");
+
+    // Termine la session de profiling
+    await performanceProfiler.endSession();
   } catch (error) {
     console.error("❌ Error:", error);
     await showHUD("❌ Error: " + (error instanceof Error ? error.message : "An error occurred"));
@@ -304,6 +354,9 @@ export default async function Command() {
     if (muteDuringDictation) {
       await setSystemAudioMute(originalMuteState);
     }
+
+    // Termine la session même en cas d'erreur
+    await performanceProfiler.endSession();
   } finally {
     // Final cleanup
     try {

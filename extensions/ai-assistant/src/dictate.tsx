@@ -24,6 +24,7 @@ import { startPeriodicNotification, stopPeriodicNotification } from "./utils/tim
 import { addTranscriptionToHistory, getRecordingsToKeep } from "./utils/transcription-history";
 import { getActiveApplication } from "./utils/active-app";
 import OpenAIClientManager from "./utils/openai-client";
+import { performanceProfiler } from "./utils/performance-profiler";
 
 const execAsync = promisify(exec);
 const SOX_PATH = "/opt/homebrew/bin/sox";
@@ -70,6 +71,9 @@ async function cleanupOldRecordings(tempDir: string, recordingsToKeep: Set<strin
 
 export default async function Command() {
   console.log("🎙️ Starting dictation...");
+
+  // Démarre le profiling de session
+  await performanceProfiler.startSession("dictate");
 
   let originalMuteState = false;
   let muteDuringDictation = false;

@@ -90,6 +90,13 @@
       "description": "Access and manage your past dictation sessions with full metadata including timestamps, source language, and any translations or improvements applied.\nEasily copy or reuse previous transcriptions.",
       "mode": "view",
       "icon": "command-icon-dictate.png"
+    },
+    {
+      "name": "performance-stats",
+      "title": "Performance Statistics",
+      "description": "View detailed performance metrics for all AI Assistant operations including transcription times, LLM response times, and local vs cloud processing comparisons.\nHelps identify bottlenecks and optimize your workflow.",
+      "mode": "view",
+      "icon": "command-icon-settings.png"
     }
   ],
   "preferences": [
