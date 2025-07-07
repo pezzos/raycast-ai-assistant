@@ -10,15 +10,14 @@ import {
   PARAKEET_MODEL_KEY,
   LOCAL_ENGINE_KEY,
   TRANSCRIBE_MODEL_KEY,
-  SILENCE_TIMEOUT_KEY,
   USE_PERSONAL_DICTIONARY_KEY,
   MUTE_DURING_DICTATION_KEY,
   FIX_TEXT_KEY,
 } from "./settings";
-import { cleanText, getLLMModel } from "./utils/common";
+import { cleanOutputText, enhancedTextProcessing } from "./utils/common";
 import { isLocalTranscriptionAvailable, transcribeAudio, type ModelEngine } from "./utils/local-models";
 import { getPersonalDictionaryPrompt } from "./utils/dictionary";
-import { setSystemAudioMute, isSystemAudioMuted } from "./utils/audio";
+import { setSystemAudioMute, isSystemAudioMuted, getOptimizedSilenceParams, testAudioDevice } from "./utils/audio";
 import { measureTime } from "./utils/timing";
 import { startPeriodicNotification, stopPeriodicNotification } from "./utils/timing";
 import { addTranscriptionToHistory, getRecordingsToKeep } from "./utils/transcription-history";
@@ -104,8 +103,9 @@ export default async function Command() {
     const savedTranscribeModel = await LocalStorage.getItem<string>(TRANSCRIBE_MODEL_KEY);
     const transcribeModel = savedTranscribeModel || "gpt-4o-mini-transcribe";
 
-    const savedSilenceTimeout = await LocalStorage.getItem<string>(SILENCE_TIMEOUT_KEY);
-    const silenceTimeout = savedSilenceTimeout || "2.0";
+    // Silence timeout is now handled by optimized silence parameters
+    // const savedSilenceTimeout = await LocalStorage.getItem<string>(SILENCE_TIMEOUT_KEY);
+    // const silenceTimeout = savedSilenceTimeout || "2.0";
 
     const savedUsePersonalDictionary = await LocalStorage.getItem<string>(USE_PERSONAL_DICTIONARY_KEY);
     const usePersonalDictionary = savedUsePersonalDictionary === "true";
@@ -133,8 +133,8 @@ export default async function Command() {
       usePersonalDictionary,
     });
 
-    // Parallel setup operations
-    const [, openai] = await Promise.all([
+    // Parallel setup operations including audio device test
+    const [, openai, audioDevice] = await Promise.all([
       // Check if local model is available if needed
       whisperMode === "local"
         ? (async () => {
@@ -152,7 +152,17 @@ export default async function Command() {
 
       // Setup OpenAI client
       OpenAIClientManager.getClient(),
+
+      // Test audio device availability
+      testAudioDevice(),
     ]);
+
+    // Warn if audio quality is poor
+    if (!audioDevice.available) {
+      console.warn("Audio device not available");
+    } else if (audioDevice.quality === "poor") {
+      console.warn("Audio device quality is poor, transcription may be less accurate");
+    }
 
     // Prepare directory and cleanup
     if (!fs.existsSync(RECORDINGS_DIR)) {
@@ -168,12 +178,15 @@ export default async function Command() {
       await setSystemAudioMute(true);
     }
 
-    // Start recording
-    await showHUD(`🎙️ Recording... (will stop after ${silenceTimeout}s of silence)`);
+    // Get optimized silence parameters
+    const silenceParams = getOptimizedSilenceParams();
+
+    // Start recording with optimized parameters
+    await showHUD(`🎙️ Recording... (will stop after ${silenceParams.timeout}s of silence)`);
 
     const command = `
       export PATH="/opt/homebrew/bin:$PATH";
-      "${SOX_PATH}" -d "${outputPath}" silence 1 0.1 0% 1 ${silenceTimeout} 2%
+      "${SOX_PATH}" -d "${outputPath}" silence 1 0.1 0% 1 ${silenceParams.timeout} ${silenceParams.threshold}
     `;
 
     await execAsync(command, { shell: "/bin/zsh" });
@@ -215,43 +228,32 @@ export default async function Command() {
       throw new Error("Invalid whisper mode configuration. Please check your settings.");
     }
 
-    // Apply personal dictionary corrections if enabled, regardless of transcription mode
-    if (usePersonalDictionary) {
-      transcription = await measureTime("Personal dictionary corrections", async () => {
-        const dictionaryPrompt = await getPersonalDictionaryPrompt();
-        if (dictionaryPrompt) {
-          const completion = await openai.chat.completions.create({
-            model: getLLMModel(),
-            messages: [
-              {
-                role: "system",
-                content:
-                  "You are a text correction assistant. Your task is to apply personal dictionary corrections to the transcribed text while preserving the original meaning and formatting.",
-              },
-              {
-                role: "user",
-                content: `Please correct this transcribed text according to the personal dictionary:\n\n${dictionaryPrompt}\n\nText to correct:\n"${transcription.text}"\n\nRespond ONLY with the corrected text.`,
-              },
-            ],
-            temperature: 0.3,
-          });
-
-          return { text: completion.choices[0].message.content?.trim() || transcription.text };
-        }
-        return transcription;
-      });
-    }
-
     stopPeriodicNotification();
 
-    // Clean up the transcription if needed
+    // Enhanced processing: combine dictionary corrections, text improvement, and potential translation
     let finalText = transcription.text;
-    if (preferences.fixText) {
-      await showHUD("✍️ Improving text...");
-      startPeriodicNotification("✍️ Improving text");
-      finalText = await measureTime("Text improvement", async () => {
-        return await cleanText(finalText, openai);
+
+    // Gather all processing options
+    const dictionaryPrompt = usePersonalDictionary ? await getPersonalDictionaryPrompt() : undefined;
+    const needsProcessing = usePersonalDictionary || preferences.fixText || targetLanguage !== "auto";
+
+    if (needsProcessing) {
+      const processingTasks = [];
+      if (dictionaryPrompt) processingTasks.push("dictionary corrections");
+      if (preferences.fixText) processingTasks.push("text improvement");
+      if (targetLanguage !== "auto") processingTasks.push(`translation to ${targetLanguage}`);
+
+      await showHUD(`🔧 Processing: ${processingTasks.join(", ")}...`);
+      startPeriodicNotification("Processing text");
+
+      finalText = await measureTime("Enhanced text processing", async () => {
+        return await enhancedTextProcessing(finalText, openai, {
+          dictionaryPrompt,
+          fixText: preferences.fixText,
+          targetLanguage: targetLanguage !== "auto" ? targetLanguage : undefined,
+        });
       });
+
       stopPeriodicNotification();
     }
 
@@ -270,34 +272,10 @@ export default async function Command() {
       activeApp: await getActiveApplication(),
     });
 
-    // Translate if needed
-    if (targetLanguage !== "auto") {
-      await showHUD(`🌐 Translating to ${targetLanguage}...`);
-      startPeriodicNotification(`Translating to ${targetLanguage}`);
+    // Translation is now handled in the enhanced processing above
 
-      finalText = await measureTime("Translation", async () => {
-        const completion = await openai.chat.completions.create({
-          model: getLLMModel(),
-          messages: [
-            {
-              role: "system",
-              content: `You are a translator. Translate the following text to the specified language: ${targetLanguage}. Keep the tone and style of the original text.`,
-            },
-            {
-              role: "user",
-              content: finalText,
-            },
-          ],
-          temperature: 0.3,
-        });
-
-        return completion.choices[0].message.content || finalText;
-      });
-
-      stopPeriodicNotification();
-    }
-
-    await Clipboard.paste(finalText);
+    const cleanedFinalText = cleanOutputText(finalText);
+    await Clipboard.paste(cleanedFinalText);
     await showHUD("✅ Transcription completed and pasted!");
     console.log("✨ Final result:", finalText);
   } catch (error) {

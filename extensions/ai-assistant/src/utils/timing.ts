@@ -9,7 +9,11 @@ import { performanceProfiler } from "./performance-profiler";
  * @param metadata Optional metadata for profiling
  * @returns Result of the function execution
  */
-export async function measureTime<T>(name: string, fn: () => Promise<T>, metadata?: Record<string, unknown>): Promise<T> {
+export async function measureTime<T>(
+  name: string,
+  fn: () => Promise<T>,
+  metadata?: Record<string, unknown>,
+): Promise<T> {
   const start = Date.now();
   try {
     const result = await fn();

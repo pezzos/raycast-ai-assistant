@@ -4,7 +4,7 @@ import fs from "fs";
 import path from "path";
 import { exec } from "child_process";
 import { promisify } from "util";
-import { getLLMModel, getSelectedText, replaceSelectedText } from "./utils/common";
+import { getLLMModel, getSelectedText, replaceSelectedText, cleanOutputText } from "./utils/common";
 import {
   SILENCE_TIMEOUT_KEY,
   MUTE_DURING_DICTATION_KEY,
@@ -15,7 +15,7 @@ import {
   PARAKEET_MODEL_KEY,
   LOCAL_ENGINE_KEY,
 } from "./settings";
-import { setSystemAudioMute, isSystemAudioMuted } from "./utils/audio";
+import { setSystemAudioMute, isSystemAudioMuted, getOptimizedSilenceParams } from "./utils/audio";
 import { measureTimeAdvanced } from "./utils/timing";
 import { startPeriodicNotification, stopPeriodicNotification } from "./utils/timing";
 import { addTranscriptionToHistory, getRecordingsToKeep } from "./utils/transcription-history";
@@ -216,8 +216,9 @@ export default async function Command() {
       await setSystemAudioMute(true);
     }
 
-    // Start recording with profiling
-    await showHUD(`🎙️ Recording... (will stop after ${silenceTimeout}s of silence)`);
+    // Get optimized silence parameters and start recording with profiling
+    const silenceParams = getOptimizedSilenceParams();
+    await showHUD(`🎙️ Recording... (will stop after ${silenceParams.timeout}s of silence)`);
     console.log("Starting recording...");
 
     const audioLength = await measureTimeAdvanced(
@@ -225,7 +226,7 @@ export default async function Command() {
       async () => {
         const command = `
         export PATH="/opt/homebrew/bin:$PATH";
-        "${SOX_PATH}" -d "${outputPath}" silence 1 0.1 0% 1 ${silenceTimeout} 2%
+        "${SOX_PATH}" -d "${outputPath}" silence 1 0.1 0% 1 ${silenceParams.timeout} ${silenceParams.threshold}
       `;
 
         await execAsync(command, { shell: "/bin/zsh" });
@@ -337,7 +338,8 @@ export default async function Command() {
       await replaceSelectedText(generatedText);
       await showHUD("✅ Text replaced!");
     } else {
-      await Clipboard.paste(generatedText);
+      const cleanedText = cleanOutputText(generatedText);
+      await Clipboard.paste(cleanedText);
       await showHUD("✅ Text generated and pasted!");
     }
 

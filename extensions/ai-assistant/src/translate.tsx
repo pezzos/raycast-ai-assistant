@@ -15,7 +15,6 @@ function getLanguageName(code: string): string {
   return LANGUAGE_OPTIONS.find((lang) => lang.value === code)?.title || code;
 }
 
-
 // Cache for translations
 const translationCache = new Map<string, string>();
 

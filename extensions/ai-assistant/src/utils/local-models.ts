@@ -7,6 +7,31 @@ import os from "os";
 
 const execAsync = promisify(exec);
 
+// Session-based memoization cache to avoid redundant checks
+const sessionCache = new Map<string, { value: unknown; timestamp: number }>();
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes cache
+
+function getCacheKey(operation: string, ...args: unknown[]): string {
+  return `${operation}:${JSON.stringify(args)}`;
+}
+
+function memoize<T>(fn: (...args: unknown[]) => T | Promise<T>, operation: string) {
+  return async (...args: unknown[]): Promise<T> => {
+    const key = getCacheKey(operation, ...args);
+    const cached = sessionCache.get(key);
+
+    if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
+      console.log(`Using cached result for ${operation}:`, args);
+      return cached.value;
+    }
+
+    const result = await fn(...args);
+    sessionCache.set(key, { value: result, timestamp: Date.now() });
+    console.log(`Cached new result for ${operation}:`, args);
+    return result;
+  };
+}
+
 // System requirements check
 const isAppleSilicon = process.arch === "arm64";
 
@@ -111,7 +136,7 @@ export function isWhisperInstalled(): boolean {
 /**
  * Find uv binary location (with timeout and path checking optimization)
  */
-async function findUvBinary(): Promise<string | null> {
+const findUvBinary = memoize(async (): Promise<string | null> => {
   // Common locations for uv (check synchronously first for speed)
   const commonPaths = [`${os.homedir()}/.local/bin/uv`, "/usr/local/bin/uv", "/opt/homebrew/bin/uv"];
 
@@ -146,12 +171,12 @@ async function findUvBinary(): Promise<string | null> {
   } catch {
     return null;
   }
-}
+}, "findUvBinary");
 
 /**
  * Check if Parakeet is installed via uv (with timeout to prevent hanging)
  */
-export async function isParakeetInstalled(): Promise<boolean> {
+export const isParakeetInstalled = memoize(async (): Promise<boolean> => {
   try {
     // Add timeout to prevent hanging
     return await Promise.race([
@@ -180,7 +205,7 @@ export async function isParakeetInstalled(): Promise<boolean> {
   } catch {
     return false;
   }
-}
+}, "isParakeetInstalled");
 
 /**
  * Check if a specific Whisper model is downloaded
@@ -226,7 +251,7 @@ export async function isModelDownloaded(engine: ModelEngine, modelId: string): P
 /**
  * Check if Whisper binary is properly installed and working
  */
-export async function isWhisperBinaryWorking(): Promise<boolean> {
+export const isWhisperBinaryWorking = memoize(async (): Promise<boolean> => {
   const whisperPath = path.join(WHISPER_BIN_DIR, "whisper");
   if (!fs.existsSync(whisperPath)) {
     console.log("Binary not found at:", whisperPath);
@@ -250,7 +275,7 @@ export async function isWhisperBinaryWorking(): Promise<boolean> {
     console.error("Error checking whisper binary:", error);
     return false;
   }
-}
+}, "isWhisperBinaryWorking");
 
 /**
  * Install Parakeet via uv tool
@@ -696,6 +721,54 @@ function getWhisperModelDescription(model: string): string {
 }
 
 /**
+ * Check if audio file needs conversion for transcription
+ */
+async function needsAudioConversion(audioPath: string, targetSampleRate = 16000): Promise<boolean> {
+  try {
+    const { stdout } = await execAsync(
+      `"${FFPROBE_PATH}" -v quiet -print_format json -show_format -show_streams "${audioPath}"`,
+    );
+    const info = JSON.parse(stdout);
+
+    const audioStream = info.streams?.find((stream: { codec_type: string }) => stream.codec_type === "audio");
+    if (!audioStream) {
+      return true; // No audio stream found, needs conversion
+    }
+
+    const sampleRate = parseInt(audioStream.sample_rate);
+    const channels = parseInt(audioStream.channels);
+    const codec = audioStream.codec_name;
+
+    // Check if already in correct format (16kHz mono PCM)
+    const isCorrectFormat = sampleRate === targetSampleRate && channels === 1 && codec === "pcm_s16le";
+
+    console.log(`Audio format check: ${sampleRate}Hz, ${channels}ch, ${codec} - needs conversion: ${!isCorrectFormat}`);
+    return !isCorrectFormat;
+  } catch (error) {
+    console.warn("Could not analyze audio format, assuming conversion needed:", error);
+    return true; // When in doubt, convert
+  }
+}
+
+/**
+ * Convert audio to required format only if needed
+ */
+async function convertAudioIfNeeded(audioPath: string, targetSampleRate = 16000): Promise<string> {
+  const needsConversion = await needsAudioConversion(audioPath, targetSampleRate);
+
+  if (!needsConversion) {
+    console.log("Audio already in correct format, skipping conversion");
+    return audioPath;
+  }
+
+  const wavPath = `${audioPath}.converted.wav`;
+  console.log("Converting audio to compatible format...");
+  await execAsync(`"${FFMPEG_PATH}" -y -i "${audioPath}" -ar ${targetSampleRate} -ac 1 -c:a pcm_s16le "${wavPath}"`);
+  console.log("Audio conversion completed");
+  return wavPath;
+}
+
+/**
  * Transcribe audio using Parakeet
  */
 export async function transcribeWithParakeet(audioPath: string, modelId: string, language?: string): Promise<string> {
@@ -732,11 +805,8 @@ export async function transcribeWithParakeet(audioPath: string, modelId: string,
       throw new Error("uv is required to run Parakeet");
     }
 
-    // Convert audio to compatible format
-    const wavPath = `${audioPath}.converted.wav`;
-    console.log("Converting audio to compatible format...");
-    await execAsync(`"${FFMPEG_PATH}" -y -i "${audioPath}" -ar 16000 -ac 1 -c:a pcm_s16le "${wavPath}"`);
-    console.log("Audio conversion completed");
+    // Convert audio to compatible format only if needed
+    const wavPath = await convertAudioIfNeeded(audioPath);
 
     // Use uv tool run to execute Parakeet CLI with proper PATH and output directory
     console.log(`Using uv at: ${uvPath}`);
@@ -777,11 +847,13 @@ export async function transcribeWithParakeet(audioPath: string, modelId: string,
       text = stdout.trim();
     }
 
-    // Clean up converted file
-    try {
-      fs.unlinkSync(wavPath);
-    } catch (error) {
-      console.warn("Could not delete converted audio file:", error);
+    // Clean up converted file only if we created it
+    if (wavPath !== audioPath) {
+      try {
+        fs.unlinkSync(wavPath);
+      } catch (error) {
+        console.warn("Could not delete converted audio file:", error);
+      }
     }
 
     if (!text) {
@@ -835,11 +907,8 @@ export async function transcribeWithWhisper(audioPath: string, model: string, la
   }
 
   try {
-    // Convert audio to the correct format for Whisper
-    const wavPath = `${audioPath}.converted.wav`;
-    console.log("Converting audio to compatible format...");
-    await execAsync(`"${FFMPEG_PATH}" -y -i "${audioPath}" -ar 16000 -ac 1 -c:a pcm_s16le "${wavPath}"`);
-    console.log("Audio conversion completed");
+    // Convert audio to the correct format for Whisper only if needed
+    const wavPath = await convertAudioIfNeeded(audioPath);
 
     // Build Whisper command with all necessary options
     const languageParam = language && language !== "auto" ? ` -l ${language}` : "";
@@ -856,11 +925,13 @@ export async function transcribeWithWhisper(audioPath: string, model: string, la
     console.log("Whisper stdout length:", stdout.length);
     console.log("Whisper stdout preview:", stdout.substring(0, 200));
 
-    // Clean up converted file
-    try {
-      fs.unlinkSync(wavPath);
-    } catch (error) {
-      console.warn("Could not delete converted audio file:", error);
+    // Clean up converted file only if we created it
+    if (wavPath !== audioPath) {
+      try {
+        fs.unlinkSync(wavPath);
+      } catch (error) {
+        console.warn("Could not delete converted audio file:", error);
+      }
     }
 
     const text = stdout.trim();
