@@ -18,7 +18,14 @@ export async function measureTime<T>(
   try {
     const result = await fn();
     const duration = Date.now() - start;
-    console.log(`⏱️ ${name} took ${duration}ms`);
+    // Enhanced logging with metadata summary
+    const metadataStr = metadata ? 
+      ` [${Object.entries(metadata)
+        .filter(([key, value]) => key !== 'systemInfo' && value !== undefined)
+        .map(([key, value]) => `${key}=${value}`)
+        .join(', ')}]` : '';
+    
+    console.log(`⏱️ ${name} took ${duration}ms${metadataStr}`);
 
     // Log vers le profiler avancé aussi
     await performanceProfiler.measureOperation(name, async () => result, metadata);

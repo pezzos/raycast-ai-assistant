@@ -18,6 +18,7 @@ export const SILENCE_THRESHOLD_KEY = "silence-threshold";
 export const USE_PERSONAL_DICTIONARY_KEY = "use-personal-dictionary";
 export const MUTE_DURING_DICTATION_KEY = "mute-during-dictation";
 export const USE_CACHE_KEY = "use-cache";
+export const EXPERIMENTAL_MODE_KEY = "experimental-mode";
 
 const WHISPER_MODE_OPTIONS = [
   { value: "transcribe", title: "Online (gpt-4o Transcribe)" },
@@ -79,6 +80,7 @@ export default function Command() {
   const [usePersonalDictionary, setUsePersonalDictionary] = useState<boolean>(false);
   const [useCache, setUseCache] = useState<boolean>(true);
   const [muteDuringDictation, setMuteDuringDictation] = useState<boolean>(true);
+  const [experimentalMode, setExperimentalMode] = useState<boolean>(false);
 
   useEffect(() => {
     // Load all saved preferences
@@ -98,6 +100,7 @@ export default function Command() {
       const savedUsePersonalDictionary = await LocalStorage.getItem<string>(USE_PERSONAL_DICTIONARY_KEY);
       const savedUseCache = await LocalStorage.getItem<string>(USE_CACHE_KEY);
       const savedMuteDuringDictation = await LocalStorage.getItem<string>(MUTE_DURING_DICTATION_KEY);
+      const savedExperimentalMode = await LocalStorage.getItem<string>(EXPERIMENTAL_MODE_KEY);
 
       // Update download status for each model
       WHISPER_MODEL_OPTIONS.forEach((model) => {
@@ -128,6 +131,7 @@ export default function Command() {
       if (savedUsePersonalDictionary) setUsePersonalDictionary(savedUsePersonalDictionary === "true");
       if (savedUseCache !== null) setUseCache(savedUseCache === "true");
       if (savedMuteDuringDictation !== null) setMuteDuringDictation(savedMuteDuringDictation === "true");
+      if (savedExperimentalMode !== null) setExperimentalMode(savedExperimentalMode === "true");
     };
 
     loadSettings();
@@ -146,6 +150,7 @@ export default function Command() {
       LocalStorage.setItem(TRANSCRIBE_MODEL_KEY, transcribeModel),
       LocalStorage.setItem(LLM_MODEL_KEY, llmModel),
       LocalStorage.setItem(FIX_TEXT_KEY, fixText.toString()),
+      LocalStorage.setItem(EXPERIMENTAL_MODE_KEY, experimentalMode.toString()),
       LocalStorage.setItem(SILENCE_TIMEOUT_KEY, silenceTimeout),
       LocalStorage.setItem(SILENCE_THRESHOLD_KEY, silenceThreshold),
       LocalStorage.setItem(USE_PERSONAL_DICTIONARY_KEY, usePersonalDictionary.toString()),
@@ -236,6 +241,15 @@ export default function Command() {
               <Form.Dropdown.Item key={model.value} value={model.value} title={model.title} />
             ))}
           </Form.Dropdown>
+          
+          <Form.Checkbox
+            id="experimentalMode"
+            title="Experimental Mode"
+            label="Enable unified transcription with integrated dictionary and post-processing"
+            value={experimentalMode}
+            onChange={setExperimentalMode}
+          />
+          
           <Form.Description text="gpt-4o Transcribe models provide specialized speech-to-text capabilities with enhanced accuracy." />
         </>
       )}

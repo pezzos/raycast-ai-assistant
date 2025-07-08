@@ -13,10 +13,21 @@ import {
   USE_PERSONAL_DICTIONARY_KEY,
   MUTE_DURING_DICTATION_KEY,
   FIX_TEXT_KEY,
+  EXPERIMENTAL_MODE_KEY,
 } from "./settings";
 import { cleanOutputText, enhancedTextProcessing } from "./utils/common";
+import { smartTranscription } from "./utils/unified-transcription-v2";
+import { recordPerformanceSnapshot } from "./utils/performance-comparator";
 import { isLocalTranscriptionAvailable, transcribeAudio, type ModelEngine } from "./utils/local-models";
 import { getPersonalDictionaryPrompt } from "./utils/dictionary";
+import { LocalStorage } from "@raycast/api";
+
+// Helper function to get dictionary entries
+async function getPersonalDictionaryEntries() {
+  const { DICTIONARY_ENTRIES_KEY } = await import("./dictate-dictionary");
+  const savedEntries = await LocalStorage.getItem<string>(DICTIONARY_ENTRIES_KEY);
+  return savedEntries ? JSON.parse(savedEntries) : [];
+}
 import { setSystemAudioMute, isSystemAudioMuted, getOptimizedAudioParams, testAudioSetup } from "./utils/audio";
 import { measureTime } from "./utils/timing";
 import { startPeriodicNotification, stopPeriodicNotification } from "./utils/timing";
@@ -119,6 +130,9 @@ export default async function Command() {
 
     const savedMuteDuringDictation = await LocalStorage.getItem<string>(MUTE_DURING_DICTATION_KEY);
     muteDuringDictation = savedMuteDuringDictation === "true";
+    
+    const savedExperimentalMode = await LocalStorage.getItem<string>(EXPERIMENTAL_MODE_KEY);
+    const experimentalMode = savedExperimentalMode === "true";
 
     originalMuteState = audioMuteState;
 
@@ -138,6 +152,7 @@ export default async function Command() {
       targetLanguage,
       fixText: preferences.fixText,
       usePersonalDictionary,
+      experimentalMode,
     });
 
     // Parallel setup operations
@@ -197,8 +212,36 @@ export default async function Command() {
     }
 
     let transcription: Transcription;
-
-    if (whisperMode === "local") {
+    let finalText: string;
+    
+    // Use unified transcription for online mode if experimental mode is enabled
+    if (whisperMode === "transcribe" && experimentalMode) {
+      // Get dictionary entries for unified transcription
+      const dictionaryEntries = usePersonalDictionary ? await getPersonalDictionaryEntries() : [];
+      
+      const unifiedResult = await smartTranscription(openai, {
+        audioFile: outputPath,
+        model: transcribeModel,
+        language: targetLanguage === "auto" ? undefined : targetLanguage,
+        dictionaryEntries: dictionaryEntries,
+        fixText: preferences.fixText,
+        targetLanguage: targetLanguage !== "auto" ? targetLanguage : undefined,
+      }, true); // Force experimental mode
+      
+      finalText = unifiedResult.text;
+      transcription = { text: finalText };
+      
+      // Record performance snapshot for comparison
+      await recordPerformanceSnapshot("optimized");
+      
+      console.log("✨ Unified transcription result:", {
+        model: unifiedResult.metadata.model,
+        processingTime: unifiedResult.metadata.processingTime,
+        dictionaryApplied: unifiedResult.metadata.dictionaryApplied,
+        textImproved: unifiedResult.metadata.textImproved,
+        translated: unifiedResult.metadata.translated,
+      });
+    } else if (whisperMode === "local") {
       const engineDisplayName = localEngine === "whisper" ? "Whisper" : "Parakeet";
       const currentModelId = localEngine === "whisper" ? whisperModel : parakeetModel;
 
@@ -212,6 +255,7 @@ export default async function Command() {
         return { text };
       });
     } else if (whisperMode === "transcribe") {
+      // Legacy transcription workflow
       transcription = await measureTime("gpt-4o Transcribe", async () => {
         return await openai.audio.transcriptions.create({
           file: fs.createReadStream(outputPath),
@@ -219,37 +263,45 @@ export default async function Command() {
           language: targetLanguage === "auto" ? undefined : targetLanguage,
         });
       });
+      
+      stopPeriodicNotification();
+
+      // Enhanced processing: combine dictionary corrections, text improvement, and potential translation
+      finalText = transcription.text;
+
+      // Gather all processing options
+      const dictionaryPrompt = usePersonalDictionary ? await getPersonalDictionaryPrompt() : undefined;
+      const needsProcessing = usePersonalDictionary || preferences.fixText || targetLanguage !== "auto";
+
+      if (needsProcessing) {
+        const processingTasks = [];
+        if (dictionaryPrompt) processingTasks.push("dictionary corrections");
+        if (preferences.fixText) processingTasks.push("text improvement");
+        if (targetLanguage !== "auto") processingTasks.push(`translation to ${targetLanguage}`);
+
+        await showHUD(`🔧 Processing: ${processingTasks.join(", ")}...`);
+        startPeriodicNotification("Processing text");
+
+        finalText = await measureTime("Enhanced text processing", async () => {
+          return await enhancedTextProcessing(finalText, openai, {
+            dictionaryPrompt,
+            fixText: preferences.fixText,
+            targetLanguage: targetLanguage !== "auto" ? targetLanguage : undefined,
+          });
+        });
+
+        stopPeriodicNotification();
+      }
+      
+      // Record performance snapshot for comparison
+      await recordPerformanceSnapshot("legacy");
     } else {
       throw new Error("Invalid whisper mode configuration. Please check your settings.");
     }
-
-    stopPeriodicNotification();
-
-    // Enhanced processing: combine dictionary corrections, text improvement, and potential translation
-    let finalText = transcription.text;
-
-    // Gather all processing options
-    const dictionaryPrompt = usePersonalDictionary ? await getPersonalDictionaryPrompt() : undefined;
-    const needsProcessing = usePersonalDictionary || preferences.fixText || targetLanguage !== "auto";
-
-    if (needsProcessing) {
-      const processingTasks = [];
-      if (dictionaryPrompt) processingTasks.push("dictionary corrections");
-      if (preferences.fixText) processingTasks.push("text improvement");
-      if (targetLanguage !== "auto") processingTasks.push(`translation to ${targetLanguage}`);
-
-      await showHUD(`🔧 Processing: ${processingTasks.join(", ")}...`);
-      startPeriodicNotification("Processing text");
-
-      finalText = await measureTime("Enhanced text processing", async () => {
-        return await enhancedTextProcessing(finalText, openai, {
-          dictionaryPrompt,
-          fixText: preferences.fixText,
-          targetLanguage: targetLanguage !== "auto" ? targetLanguage : undefined,
-        });
-      });
-
+    
+    if (whisperMode === "local") {
       stopPeriodicNotification();
+      finalText = transcription.text;
     }
 
     // Add to history
@@ -267,7 +319,7 @@ export default async function Command() {
       activeApp: await getActiveApplication(),
     });
 
-    // Translation is now handled in the enhanced processing above
+    // Translation is now handled in the enhanced processing above or unified transcription
 
     const cleanedFinalText = cleanOutputText(finalText);
     await Clipboard.paste(cleanedFinalText);
