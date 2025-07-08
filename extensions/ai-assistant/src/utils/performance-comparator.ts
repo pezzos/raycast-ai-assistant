@@ -55,7 +55,7 @@ class PerformanceComparator {
    */
   recordSnapshot(snapshot: PerformanceSnapshot): void {
     this.snapshots.push(snapshot);
-    
+
     // Keep only the most recent snapshots
     if (this.snapshots.length > this.MAX_SNAPSHOTS) {
       this.snapshots = this.snapshots.slice(-this.MAX_SNAPSHOTS);
@@ -64,12 +64,12 @@ class PerformanceComparator {
     // Enhanced logging with comparison
     const mode = snapshot.mode === "unified" ? "🧪 UNIFIED" : "🔄 LEGACY";
     const operations = snapshot.operations
-      .filter(op => op.success)
-      .map(op => `${op.name}:${op.duration}ms`)
+      .filter((op) => op.success)
+      .map((op) => `${op.name}:${op.duration}ms`)
       .join(", ");
-    
+
     console.log(`📊 [PERF] ${mode} - Total: ${snapshot.totalDuration}ms | ${operations}`);
-    
+
     // Show comparison if we have both modes
     this.showComparison();
   }
@@ -80,30 +80,32 @@ class PerformanceComparator {
   async createSnapshotFromSession(mode: "legacy" | "unified" | "optimized"): Promise<PerformanceSnapshot | null> {
     try {
       const stats = await performanceProfiler.getPerformanceStats("dictate", 1);
-      
+
       if (stats.sessions.length === 0) {
         return null;
       }
 
       const latestSession = stats.sessions[stats.sessions.length - 1];
-      
+
       return {
         timestamp: latestSession.startTime,
         mode,
         totalDuration: latestSession.totalDuration || 0,
-        operations: latestSession.metrics.map(metric => ({
+        operations: latestSession.metrics.map((metric) => ({
           name: metric.operation,
           duration: metric.duration,
-          success: metric.success
+          success: metric.success,
         })),
         metadata: {
-          model: latestSession.metrics.find(m => m.metadata?.model)?.metadata?.model as string,
-          language: latestSession.metrics.find(m => m.metadata?.language)?.metadata?.language as string,
-          dictionaryEntries: latestSession.metrics.find(m => m.metadata?.dictionaryEntries)?.metadata?.dictionaryEntries as number,
-          fixText: latestSession.metrics.find(m => m.metadata?.fixText)?.metadata?.fixText as boolean,
-          targetLanguage: latestSession.metrics.find(m => m.metadata?.targetLanguage)?.metadata?.targetLanguage as string,
-          apiCalls: latestSession.metrics.find(m => m.metadata?.apiCalls)?.metadata?.apiCalls as number,
-        }
+          model: latestSession.metrics.find((m) => m.metadata?.model)?.metadata?.model as string,
+          language: latestSession.metrics.find((m) => m.metadata?.language)?.metadata?.language as string,
+          dictionaryEntries: latestSession.metrics.find((m) => m.metadata?.dictionaryEntries)?.metadata
+            ?.dictionaryEntries as number,
+          fixText: latestSession.metrics.find((m) => m.metadata?.fixText)?.metadata?.fixText as boolean,
+          targetLanguage: latestSession.metrics.find((m) => m.metadata?.targetLanguage)?.metadata
+            ?.targetLanguage as string,
+          apiCalls: latestSession.metrics.find((m) => m.metadata?.apiCalls)?.metadata?.apiCalls as number,
+        },
       };
     } catch (error) {
       console.error("Failed to create performance snapshot:", error);
@@ -116,8 +118,8 @@ class PerformanceComparator {
    */
   private showComparison(): void {
     const recentSnapshots = this.snapshots.slice(-10); // Last 10 snapshots
-    const legacySnapshots = recentSnapshots.filter(s => s.mode === "legacy");
-    const unifiedSnapshots = recentSnapshots.filter(s => s.mode === "unified");
+    const legacySnapshots = recentSnapshots.filter((s) => s.mode === "legacy");
+    const unifiedSnapshots = recentSnapshots.filter((s) => s.mode === "unified");
 
     if (legacySnapshots.length === 0 || unifiedSnapshots.length === 0) {
       return; // Not enough data for comparison
@@ -128,15 +130,18 @@ class PerformanceComparator {
     const avgUnified = unifiedSnapshots.reduce((sum, s) => sum + s.totalDuration, 0) / unifiedSnapshots.length;
 
     const timeSaved = avgLegacy - avgUnified;
-    const percentageImprovement = ((timeSaved / avgLegacy) * 100);
+    const percentageImprovement = (timeSaved / avgLegacy) * 100;
 
     // Count API calls (estimate based on operations)
     const avgLegacyApiCalls = this.estimateApiCalls(legacySnapshots);
     const avgUnifiedApiCalls = this.estimateApiCalls(unifiedSnapshots);
 
-    if (Math.abs(percentageImprovement) > 5) { // Only show if significant difference
+    if (Math.abs(percentageImprovement) > 5) {
+      // Only show if significant difference
       const improvementIcon = percentageImprovement > 0 ? "⚡" : "⚠️";
-      console.log(`${improvementIcon} [COMPARISON] Unified vs Legacy: ${timeSaved > 0 ? '+' : ''}${timeSaved.toFixed(0)}ms (${percentageImprovement.toFixed(1)}%) | API calls: ${avgUnifiedApiCalls} vs ${avgLegacyApiCalls}`);
+      console.log(
+        `${improvementIcon} [COMPARISON] Unified vs Legacy: ${timeSaved > 0 ? "+" : ""}${timeSaved.toFixed(0)}ms (${percentageImprovement.toFixed(1)}%) | API calls: ${avgUnifiedApiCalls} vs ${avgLegacyApiCalls}`,
+      );
     }
   }
 
@@ -145,25 +150,25 @@ class PerformanceComparator {
    */
   private estimateApiCalls(snapshots: PerformanceSnapshot[]): number {
     if (snapshots.length === 0) return 0;
-    
+
     const avgApiCalls = snapshots.reduce((sum, snapshot) => {
       // Count operations that likely represent API calls
-      const apiCallOperations = snapshot.operations.filter(op => 
-        op.name.includes("transcription") || 
-        op.name.includes("processing") ||
-        op.name.includes("enhanced") ||
-        op.name.includes("unified")
+      const apiCallOperations = snapshot.operations.filter(
+        (op) =>
+          op.name.includes("transcription") ||
+          op.name.includes("processing") ||
+          op.name.includes("enhanced") ||
+          op.name.includes("unified"),
       );
-      
+
       // Legacy typically has: transcription + post-processing (2 calls)
       // Unified typically has: unified-transcription (1 call)
-      const estimatedCalls = snapshot.mode === "legacy" ? 
-        Math.max(2, apiCallOperations.length) : 
-        Math.max(1, apiCallOperations.length);
-      
+      const estimatedCalls =
+        snapshot.mode === "legacy" ? Math.max(2, apiCallOperations.length) : Math.max(1, apiCallOperations.length);
+
       return sum + estimatedCalls;
     }, 0);
-    
+
     return Math.round(avgApiCalls / snapshots.length);
   }
 
@@ -176,21 +181,21 @@ class PerformanceComparator {
     recentSnapshots: PerformanceSnapshot[];
   } {
     const recentSnapshots = this.snapshots.slice(-20);
-    const legacySnapshots = recentSnapshots.filter(s => s.mode === "legacy");
-    const unifiedSnapshots = recentSnapshots.filter(s => s.mode === "unified");
+    const legacySnapshots = recentSnapshots.filter((s) => s.mode === "legacy");
+    const unifiedSnapshots = recentSnapshots.filter((s) => s.mode === "unified");
 
     let comparison: TranscriptionComparison | null = null;
-    
+
     if (legacySnapshots.length > 0 && unifiedSnapshots.length > 0) {
       const avgLegacy = legacySnapshots.reduce((sum, s) => sum + s.totalDuration, 0) / legacySnapshots.length;
       const avgUnified = unifiedSnapshots.reduce((sum, s) => sum + s.totalDuration, 0) / unifiedSnapshots.length;
-      
+
       const avgLegacyApiCalls = this.estimateApiCalls(legacySnapshots);
       const avgUnifiedApiCalls = this.estimateApiCalls(unifiedSnapshots);
-      
+
       const timeSaved = avgLegacy - avgUnified;
       const percentageImprovement = (timeSaved / avgLegacy) * 100;
-      
+
       comparison = {
         legacy: {
           totalTime: avgLegacy,
@@ -206,16 +211,16 @@ class PerformanceComparator {
           timeSaved,
           percentageImprovement,
           apiCallsReduced: avgLegacyApiCalls - avgUnifiedApiCalls,
-        }
+        },
       };
     }
 
     const summary = `Performance Report: ${recentSnapshots.length} recent operations (${legacySnapshots.length} legacy, ${unifiedSnapshots.length} unified)`;
-    
+
     return {
       summary,
       comparison,
-      recentSnapshots
+      recentSnapshots,
     };
   }
 

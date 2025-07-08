@@ -1,4 +1,13 @@
-import { Form, ActionPanel, Action, showHUD, getSelectedText, LocalStorage } from "@raycast/api";
+import {
+  Form,
+  ActionPanel,
+  Action,
+  showHUD,
+  getSelectedText,
+  LocalStorage,
+  launchCommand,
+  LaunchType,
+} from "@raycast/api";
 import { useState, useEffect } from "react";
 import { DICTIONARY_ENTRIES_KEY } from "./dictate-dictionary";
 
@@ -48,6 +57,12 @@ export default function Command() {
       const updatedEntries = [...entries, newEntry];
       await LocalStorage.setItem(DICTIONARY_ENTRIES_KEY, JSON.stringify(updatedEntries));
       await showHUD("✅ Word added to dictionary");
+
+      // Navigate to dictionary view
+      await launchCommand({
+        name: "dictate-dictionary",
+        type: LaunchType.UserInitiated,
+      });
     } catch (error) {
       console.error("Error adding word to dictionary:", error);
       await showHUD("❌ Failed to add word to dictionary");

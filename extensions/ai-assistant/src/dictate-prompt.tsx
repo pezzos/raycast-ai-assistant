@@ -213,7 +213,7 @@ export default async function Command() {
     const outputPath = path.join(RECORDINGS_DIR, `recording-${Date.now()}.wav`);
     console.log("Recording will be saved to:", outputPath);
 
-    // Get optimized audio parameters 
+    // Get optimized audio parameters
     const audioParams = await getOptimizedAudioParams();
 
     // Handle audio muting just before recording

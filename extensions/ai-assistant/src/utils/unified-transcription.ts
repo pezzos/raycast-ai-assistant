@@ -41,19 +41,19 @@ function buildUnifiedTranscriptionPrompt(options: {
   targetLanguage?: string;
 }): string {
   const { dictionaryEntries, fixText, targetLanguage } = options;
-  
+
   // Base transcription instruction
   let prompt = "Transcribe this audio with maximum accuracy.";
-  
+
   // Add personal dictionary corrections if provided
   if (dictionaryEntries && dictionaryEntries.length > 0) {
     prompt += "\n\nPersonal dictionary corrections to apply:";
-    dictionaryEntries.forEach(entry => {
+    dictionaryEntries.forEach((entry) => {
       prompt += `\n- When you hear "${entry.original}", transcribe as "${entry.correction}"`;
     });
     prompt += "\nOnly apply these corrections when you're confident the spoken word matches exactly.";
   }
-  
+
   // Add text improvement instructions if enabled
   if (fixText) {
     prompt += "\n\nAfter transcription, improve the text by:";
@@ -62,36 +62,36 @@ function buildUnifiedTranscriptionPrompt(options: {
     prompt += "\n- Making the text more natural and fluent";
     prompt += "\n- Maintaining the original meaning and tone";
   }
-  
+
   // Add translation instruction if target language is specified
   if (targetLanguage && targetLanguage !== "auto") {
     prompt += `\n\nAfter transcription${fixText ? " and improvement" : ""}, translate the result to ${targetLanguage}.`;
     prompt += "\nMaintain the tone, style, and meaning of the original text.";
   }
-  
+
   // Final instruction
   prompt += "\n\nRespond ONLY with the final processed text.";
-  
+
   return prompt;
 }
 
 /**
- * Performs unified transcription with integrated dictionary corrections, 
+ * Performs unified transcription with integrated dictionary corrections,
  * text improvement, and translation in a single API call
  */
 export async function unifiedTranscription(
   openai: OpenAI,
-  options: UnifiedTranscriptionOptions
+  options: UnifiedTranscriptionOptions,
 ): Promise<UnifiedTranscriptionResult> {
   const startTime = Date.now();
-  
+
   // Build the unified prompt
   const prompt = buildUnifiedTranscriptionPrompt({
     dictionaryEntries: options.dictionaryEntries,
     fixText: options.fixText,
-    targetLanguage: options.targetLanguage
+    targetLanguage: options.targetLanguage,
   });
-  
+
   // Perform transcription with unified prompt
   const transcriptionResult = await performanceProfiler.measureOperation(
     "unified-transcription",
@@ -111,15 +111,15 @@ export async function unifiedTranscription(
       dictionaryEntries: options.dictionaryEntries?.length || 0,
       fixText: options.fixText,
       targetLanguage: options.targetLanguage,
-    }
+    },
   );
-  
+
   const processingTime = Date.now() - startTime;
-  
+
   // Debug logging
   console.log("\ud83d\udcdd Unified prompt used:", prompt);
   console.log("\u2728 Raw transcription result:", transcriptionResult.text);
-  
+
   return {
     text: transcriptionResult.text,
     metadata: {
@@ -130,7 +130,7 @@ export async function unifiedTranscription(
       translated: Boolean(options.targetLanguage && options.targetLanguage !== "auto"),
       processingTime,
       // Note: OpenAI doesn't provide token count for transcription API
-    }
+    },
   };
 }
 
@@ -140,50 +140,45 @@ export async function unifiedTranscription(
  */
 export async function legacyTranscriptionWorkflow(
   openai: OpenAI,
-  options: UnifiedTranscriptionOptions
+  options: UnifiedTranscriptionOptions,
 ): Promise<UnifiedTranscriptionResult> {
   const startTime = Date.now();
-  
+
   // Import here to avoid circular dependencies
   const { enhancedTextProcessing } = await import("./common");
   const { getPersonalDictionaryPrompt } = await import("./dictionary");
-  
+
   // Step 1: Basic transcription
-  const transcriptionResult = await measureTime(
-    `Legacy transcription (${options.model})`,
-    async () => {
-      return await openai.audio.transcriptions.create({
-        file: fs.createReadStream(options.audioFile),
-        model: options.model,
-        language: options.language,
-      });
-    }
-  );
-  
+  const transcriptionResult = await measureTime(`Legacy transcription (${options.model})`, async () => {
+    return await openai.audio.transcriptions.create({
+      file: fs.createReadStream(options.audioFile),
+      model: options.model,
+      language: options.language,
+    });
+  });
+
   let finalText = transcriptionResult.text;
-  
+
   // Step 2: Post-processing if needed
-  const needsProcessing = options.dictionaryEntries?.length || options.fixText || 
-                         (options.targetLanguage && options.targetLanguage !== "auto");
-  
+  const needsProcessing =
+    options.dictionaryEntries?.length ||
+    options.fixText ||
+    (options.targetLanguage && options.targetLanguage !== "auto");
+
   if (needsProcessing) {
-    const dictionaryPrompt = options.dictionaryEntries?.length ? 
-      await getPersonalDictionaryPrompt() : undefined;
-    
-    finalText = await measureTime(
-      "Legacy post-processing",
-      async () => {
-        return await enhancedTextProcessing(finalText, openai, {
-          dictionaryPrompt,
-          fixText: options.fixText,
-          targetLanguage: options.targetLanguage
-        });
-      }
-    );
+    const dictionaryPrompt = options.dictionaryEntries?.length ? await getPersonalDictionaryPrompt() : undefined;
+
+    finalText = await measureTime("Legacy post-processing", async () => {
+      return await enhancedTextProcessing(finalText, openai, {
+        dictionaryPrompt,
+        fixText: options.fixText,
+        targetLanguage: options.targetLanguage,
+      });
+    });
   }
-  
+
   const processingTime = Date.now() - startTime;
-  
+
   return {
     text: finalText,
     metadata: {
@@ -193,7 +188,7 @@ export async function legacyTranscriptionWorkflow(
       textImproved: Boolean(options.fixText),
       translated: Boolean(options.targetLanguage && options.targetLanguage !== "auto"),
       processingTime,
-    }
+    },
   };
 }
 
@@ -204,7 +199,7 @@ export async function legacyTranscriptionWorkflow(
 export async function smartTranscription(
   openai: OpenAI,
   options: UnifiedTranscriptionOptions,
-  useExperimentalMode: boolean = false
+  useExperimentalMode: boolean = false,
 ): Promise<UnifiedTranscriptionResult> {
   // Use experimental unified mode if enabled
   if (useExperimentalMode) {
@@ -216,7 +211,7 @@ export async function smartTranscription(
       // Fall through to legacy workflow
     }
   }
-  
+
   // Use legacy workflow
   console.log("🔄 Using legacy transcription workflow");
   return await legacyTranscriptionWorkflow(openai, options);

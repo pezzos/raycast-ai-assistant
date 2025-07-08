@@ -38,56 +38,59 @@ function buildDictionaryPrompt(dictionaryEntries?: DictionaryEntry[]): string {
   if (!dictionaryEntries || dictionaryEntries.length === 0) {
     return "";
   }
-  
+
   // Format dictionary entries for Whisper prompt
   const corrections = dictionaryEntries
-    .map(entry => `"${entry.original}" should be "${entry.correction}"`)
+    .map((entry) => `"${entry.original}" should be "${entry.correction}"`)
     .join(", ");
-  
+
   return `Personal dictionary: ${corrections}.`;
 }
 
 /**
  * Builds a unified post-processing prompt that combines text improvement and translation
  */
-function buildPostProcessingPrompt(options: {
-  improve?: boolean;
-  translateTo?: string;
-}): { systemPrompt: string; userPrompt: string; tasks: string[] } {
+function buildPostProcessingPrompt(options: { improve?: boolean; translateTo?: string }): {
+  systemPrompt: string;
+  userPrompt: string;
+  tasks: string[];
+} {
   const tasks: string[] = [];
   let systemPrompt = "You are an expert text processing assistant.";
-  
+
   if (options.improve) {
-    systemPrompt += " Improve grammar, punctuation, capitalization, and overall text quality while preserving meaning and tone.";
+    systemPrompt +=
+      " Improve grammar, punctuation, capitalization, and overall text quality while preserving meaning and tone.";
     tasks.push("improve text quality");
   }
-  
+
   if (options.translateTo) {
     const languageMap: Record<string, string> = {
-      'en': 'English',
-      'fr': 'French', 
-      'es': 'Spanish',
-      'de': 'German',
-      'it': 'Italian',
-      'pt': 'Portuguese',
-      'zh': 'Chinese',
-      'ja': 'Japanese',
-      'ko': 'Korean',
-      'ru': 'Russian',
-      'ar': 'Arabic'
+      en: "English",
+      fr: "French",
+      es: "Spanish",
+      de: "German",
+      it: "Italian",
+      pt: "Portuguese",
+      zh: "Chinese",
+      ja: "Japanese",
+      ko: "Korean",
+      ru: "Russian",
+      ar: "Arabic",
     };
-    
+
     const targetLangName = languageMap[options.translateTo] || options.translateTo;
     systemPrompt += ` Translate the text to ${targetLangName}, maintaining tone, style, and meaning.`;
     tasks.push(`translate to ${targetLangName}`);
   }
-  
+
   systemPrompt += " Respond ONLY with the processed text, no explanations.";
-  
-  const userPrompt = tasks.length > 1 
-    ? `Please ${tasks.join(" and ")} for the following text:`
-    : `Please ${tasks[0]} for the following text:`;
-  
+
+  const userPrompt =
+    tasks.length > 1
+      ? `Please ${tasks.join(" and ")} for the following text:`
+      : `Please ${tasks[0]} for the following text:`;
+
   return { systemPrompt, userPrompt, tasks };
 }
 
@@ -102,11 +105,11 @@ export async function transcribeWithDictionary(
     model: string;
     language?: string;
     dictionaryEntries?: DictionaryEntry[];
-  }
+  },
 ): Promise<{ text: string; metadata: any }> {
   // Build dictionary prompt for transcription
   const dictionaryPrompt = buildDictionaryPrompt(options.dictionaryEntries);
-  
+
   // Perform transcription with dictionary integration
   const transcriptionResult = await performanceProfiler.measureOperation(
     "transcription-with-dictionary",
@@ -126,21 +129,21 @@ export async function transcribeWithDictionary(
       language: options.language,
       dictionaryEntries: options.dictionaryEntries?.length || 0,
       hasDictionary: Boolean(options.dictionaryEntries?.length),
-    }
+    },
   );
-  
+
   console.log("🎤 Transcription with dictionary:", {
     dictionaryPrompt: dictionaryPrompt || "(none)",
-    result: transcriptionResult.text
+    result: transcriptionResult.text,
   });
-  
+
   return {
     text: transcriptionResult.text,
     metadata: {
       model: options.model,
       language: options.language,
       dictionaryApplied: Boolean(options.dictionaryEntries?.length),
-    }
+    },
   };
 }
 
@@ -154,11 +157,11 @@ export async function unifiedPostProcessing(
   options: {
     improve?: boolean;
     translateTo?: string;
-  }
+  },
 ): Promise<{ text: string; metadata: any }> {
   // Build post-processing prompts
   const { systemPrompt, userPrompt, tasks } = buildPostProcessingPrompt(options);
-  
+
   // Perform unified post-processing
   const processedResult = await performanceProfiler.measureOperation(
     "unified-post-processing",
@@ -167,11 +170,11 @@ export async function unifiedPostProcessing(
         model: "gpt-4o-mini", // Fast model for text processing
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: `${userPrompt}\n\n"${text}"` }
+          { role: "user", content: `${userPrompt}\n\n"${text}"` },
         ],
         temperature: 0.3,
       });
-      
+
       return completion.choices[0].message.content?.trim() || text;
     },
     {
@@ -180,22 +183,22 @@ export async function unifiedPostProcessing(
       improve: options.improve,
       translateTo: options.translateTo,
       tasks: tasks.join("+"),
-    }
+    },
   );
-  
+
   console.log("🔧 Post-processing result:", {
     tasks: tasks.join(" + "),
     input: text.substring(0, 50) + "...",
-    output: processedResult.substring(0, 50) + "..."
+    output: processedResult.substring(0, 50) + "...",
   });
-  
+
   return {
     text: processedResult,
     metadata: {
       textImproved: Boolean(options.improve),
       translated: Boolean(options.translateTo),
-      tasks
-    }
+      tasks,
+    },
   };
 }
 
@@ -204,10 +207,10 @@ export async function unifiedPostProcessing(
  */
 export async function optimizedTranscription(
   openai: OpenAI,
-  options: UnifiedTranscriptionOptions
+  options: UnifiedTranscriptionOptions,
 ): Promise<UnifiedTranscriptionResult> {
   const startTime = Date.now();
-  
+
   // Step 1: Transcription with dictionary integration
   const transcriptionResult = await transcribeWithDictionary(openai, {
     audioFile: options.audioFile,
@@ -215,25 +218,25 @@ export async function optimizedTranscription(
     language: options.language,
     dictionaryEntries: options.dictionaryEntries,
   });
-  
+
   let finalText = transcriptionResult.text;
   let postProcessingMetadata = {};
-  
+
   // Step 2: Unified post-processing (if needed)
   const needsProcessing = options.fixText || (options.targetLanguage && options.targetLanguage !== "auto");
-  
+
   if (needsProcessing) {
     const postProcessingResult = await unifiedPostProcessing(openai, finalText, {
       improve: options.fixText,
       translateTo: options.targetLanguage && options.targetLanguage !== "auto" ? options.targetLanguage : undefined,
     });
-    
+
     finalText = postProcessingResult.text;
     postProcessingMetadata = postProcessingResult.metadata;
   }
-  
+
   const processingTime = Date.now() - startTime;
-  
+
   return {
     text: finalText,
     metadata: {
@@ -244,7 +247,7 @@ export async function optimizedTranscription(
       translated: postProcessingMetadata.translated || false,
       processingTime,
       apiCalls: needsProcessing ? 2 : 1,
-    }
+    },
   };
 }
 
@@ -254,14 +257,14 @@ export async function optimizedTranscription(
  */
 export async function legacyTranscriptionWorkflow(
   openai: OpenAI,
-  options: UnifiedTranscriptionOptions
+  options: UnifiedTranscriptionOptions,
 ): Promise<UnifiedTranscriptionResult> {
   const startTime = Date.now();
-  
+
   // Import here to avoid circular dependencies
   const { enhancedTextProcessing } = await import("./common");
   const { getPersonalDictionaryPrompt } = await import("./dictionary");
-  
+
   // Step 1: Basic transcription
   const transcriptionResult = await performanceProfiler.measureOperation(
     "legacy-transcription",
@@ -276,38 +279,39 @@ export async function legacyTranscriptionWorkflow(
       mode: "legacy",
       model: options.model,
       language: options.language,
-    }
+    },
   );
-  
+
   let finalText = transcriptionResult.text;
-  
+
   // Step 2: Post-processing if needed
-  const needsProcessing = options.dictionaryEntries?.length || options.fixText || 
-                         (options.targetLanguage && options.targetLanguage !== "auto");
-  
+  const needsProcessing =
+    options.dictionaryEntries?.length ||
+    options.fixText ||
+    (options.targetLanguage && options.targetLanguage !== "auto");
+
   if (needsProcessing) {
-    const dictionaryPrompt = options.dictionaryEntries?.length ? 
-      await getPersonalDictionaryPrompt() : undefined;
-    
+    const dictionaryPrompt = options.dictionaryEntries?.length ? await getPersonalDictionaryPrompt() : undefined;
+
     finalText = await performanceProfiler.measureOperation(
       "legacy-post-processing",
       async () => {
         return await enhancedTextProcessing(finalText, openai, {
           dictionaryPrompt,
           fixText: options.fixText,
-          targetLanguage: options.targetLanguage
+          targetLanguage: options.targetLanguage,
         });
       },
       {
         dictionaryPrompt: Boolean(dictionaryPrompt),
         fixText: options.fixText,
         targetLanguage: options.targetLanguage,
-      }
+      },
     );
   }
-  
+
   const processingTime = Date.now() - startTime;
-  
+
   return {
     text: finalText,
     metadata: {
@@ -318,7 +322,7 @@ export async function legacyTranscriptionWorkflow(
       translated: Boolean(options.targetLanguage && options.targetLanguage !== "auto"),
       processingTime,
       apiCalls: needsProcessing ? 3 : 1, // Legacy uses more calls
-    }
+    },
   };
 }
 
@@ -329,7 +333,7 @@ export async function legacyTranscriptionWorkflow(
 export async function smartTranscription(
   openai: OpenAI,
   options: UnifiedTranscriptionOptions,
-  useExperimentalMode: boolean = false
+  useExperimentalMode: boolean = false,
 ): Promise<UnifiedTranscriptionResult> {
   // Use experimental optimized mode if enabled
   if (useExperimentalMode) {
@@ -341,7 +345,7 @@ export async function smartTranscription(
       // Fall through to legacy workflow
     }
   }
-  
+
   // Use legacy workflow
   console.log("🔄 Using legacy transcription workflow");
   return await legacyTranscriptionWorkflow(openai, options);

@@ -19,12 +19,13 @@ export async function measureTime<T>(
     const result = await fn();
     const duration = Date.now() - start;
     // Enhanced logging with metadata summary
-    const metadataStr = metadata ? 
-      ` [${Object.entries(metadata)
-        .filter(([key, value]) => key !== 'systemInfo' && value !== undefined)
-        .map(([key, value]) => `${key}=${value}`)
-        .join(', ')}]` : '';
-    
+    const metadataStr = metadata
+      ? ` [${Object.entries(metadata)
+          .filter(([key, value]) => key !== "systemInfo" && value !== undefined)
+          .map(([key, value]) => `${key}=${value}`)
+          .join(", ")}]`
+      : "";
+
     console.log(`⏱️ ${name} took ${duration}ms${metadataStr}`);
 
     // Log vers le profiler avancé aussi

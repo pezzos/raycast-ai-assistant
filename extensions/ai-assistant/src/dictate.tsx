@@ -130,7 +130,7 @@ export default async function Command() {
 
     const savedMuteDuringDictation = await LocalStorage.getItem<string>(MUTE_DURING_DICTATION_KEY);
     muteDuringDictation = savedMuteDuringDictation === "true";
-    
+
     const savedExperimentalMode = await LocalStorage.getItem<string>(EXPERIMENTAL_MODE_KEY);
     const experimentalMode = savedExperimentalMode === "true";
 
@@ -213,27 +213,31 @@ export default async function Command() {
 
     let transcription: Transcription;
     let finalText: string;
-    
+
     // Use unified transcription for online mode if experimental mode is enabled
     if (whisperMode === "transcribe" && experimentalMode) {
       // Get dictionary entries for unified transcription
       const dictionaryEntries = usePersonalDictionary ? await getPersonalDictionaryEntries() : [];
-      
-      const unifiedResult = await smartTranscription(openai, {
-        audioFile: outputPath,
-        model: transcribeModel,
-        language: targetLanguage === "auto" ? undefined : targetLanguage,
-        dictionaryEntries: dictionaryEntries,
-        fixText: preferences.fixText,
-        targetLanguage: targetLanguage !== "auto" ? targetLanguage : undefined,
-      }, true); // Force experimental mode
-      
+
+      const unifiedResult = await smartTranscription(
+        openai,
+        {
+          audioFile: outputPath,
+          model: transcribeModel,
+          language: targetLanguage === "auto" ? undefined : targetLanguage,
+          dictionaryEntries: dictionaryEntries,
+          fixText: preferences.fixText,
+          targetLanguage: targetLanguage !== "auto" ? targetLanguage : undefined,
+        },
+        true,
+      ); // Force experimental mode
+
       finalText = unifiedResult.text;
       transcription = { text: finalText };
-      
+
       // Record performance snapshot for comparison
       await recordPerformanceSnapshot("optimized");
-      
+
       console.log("✨ Unified transcription result:", {
         model: unifiedResult.metadata.model,
         processingTime: unifiedResult.metadata.processingTime,
@@ -263,7 +267,7 @@ export default async function Command() {
           language: targetLanguage === "auto" ? undefined : targetLanguage,
         });
       });
-      
+
       stopPeriodicNotification();
 
       // Enhanced processing: combine dictionary corrections, text improvement, and potential translation
@@ -292,13 +296,13 @@ export default async function Command() {
 
         stopPeriodicNotification();
       }
-      
+
       // Record performance snapshot for comparison
       await recordPerformanceSnapshot("legacy");
     } else {
       throw new Error("Invalid whisper mode configuration. Please check your settings.");
     }
-    
+
     if (whisperMode === "local") {
       stopPeriodicNotification();
       finalText = transcription.text;

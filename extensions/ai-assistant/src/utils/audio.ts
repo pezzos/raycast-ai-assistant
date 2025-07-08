@@ -40,47 +40,47 @@ export async function getOptimizedAudioParams(): Promise<{
 /**
  * Test audio setup without recording (fast, non-intrusive)
  */
-export async function testAudioSetup(): Promise<{ 
-  soxAvailable: boolean; 
-  inputDeviceAvailable: boolean; 
-  error?: string 
+export async function testAudioSetup(): Promise<{
+  soxAvailable: boolean;
+  inputDeviceAvailable: boolean;
+  error?: string;
 }> {
   try {
     // Check if SOX is available
-    const soxCheck = await execAsync('which /opt/homebrew/bin/sox', { shell: "/bin/zsh" });
+    const soxCheck = await execAsync("which /opt/homebrew/bin/sox", { shell: "/bin/zsh" });
     const soxAvailable = soxCheck.stdout.trim().length > 0;
 
     if (!soxAvailable) {
-      return { 
-        soxAvailable: false, 
-        inputDeviceAvailable: false, 
-        error: "SOX not found - please install: brew install sox" 
+      return {
+        soxAvailable: false,
+        inputDeviceAvailable: false,
+        error: "SOX not found - please install: brew install sox",
       };
     }
 
     // Check input device via system profiler (no recording)
     const deviceCheck = await execAsync(
       '/usr/sbin/system_profiler SPAudioDataType | grep -A 2 "Default Input Device: Yes" | grep "Input Channels"',
-      { shell: "/bin/zsh" }
+      { shell: "/bin/zsh" },
     );
-    
+
     const inputDeviceAvailable = deviceCheck.stdout.trim().length > 0;
 
     if (!inputDeviceAvailable) {
-      return { 
-        soxAvailable: true, 
-        inputDeviceAvailable: false, 
-        error: "No input audio device detected" 
+      return {
+        soxAvailable: true,
+        inputDeviceAvailable: false,
+        error: "No input audio device detected",
       };
     }
 
     return { soxAvailable: true, inputDeviceAvailable: true };
   } catch (error) {
     console.warn("Audio setup test failed:", error);
-    return { 
-      soxAvailable: false, 
-      inputDeviceAvailable: false, 
-      error: `Audio setup check failed: ${error}` 
+    return {
+      soxAvailable: false,
+      inputDeviceAvailable: false,
+      error: `Audio setup check failed: ${error}`,
     };
   }
 }
@@ -177,7 +177,7 @@ export async function setSystemAudioMute(mute: boolean): Promise<void> {
     if (mute) {
       // Capture current volume level before muting
       originalVolumeLevel = await getSystemVolumeLevel();
-      
+
       // Set system mute only - don't touch volume
       await execAsync(`osascript -e 'set volume with output muted'`);
     } else {
@@ -185,7 +185,7 @@ export async function setSystemAudioMute(mute: boolean): Promise<void> {
       if (originalVolumeLevel !== null) {
         // Wait 1.5 seconds for audio capture device to release processes
         await new Promise((resolve) => setTimeout(resolve, 1500));
-        
+
         // Fade in to original volume over 0.5s (this will automatically unmute when volume > 0)
         await fadeInVolume(originalVolumeLevel, 500);
         originalVolumeLevel = null; // Reset after restoration

@@ -241,7 +241,7 @@ export default function Command() {
               <Form.Dropdown.Item key={model.value} value={model.value} title={model.title} />
             ))}
           </Form.Dropdown>
-          
+
           <Form.Checkbox
             id="experimentalMode"
             title="Experimental Mode"
@@ -249,7 +249,7 @@ export default function Command() {
             value={experimentalMode}
             onChange={setExperimentalMode}
           />
-          
+
           <Form.Description text="gpt-4o Transcribe models provide specialized speech-to-text capabilities with enhanced accuracy." />
         </>
       )}
