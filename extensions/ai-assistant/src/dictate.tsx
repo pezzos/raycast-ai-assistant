@@ -179,7 +179,7 @@ export default async function Command() {
     }
 
     // Get optimized audio parameters (format + silence detection)
-    const audioParams = getOptimizedAudioParams();
+    const audioParams = await getOptimizedAudioParams();
 
     // Start recording with optimized parameters and direct format
     await showHUD(`🎙️ Recording... (will stop after ${audioParams.timeout}s of silence)`);

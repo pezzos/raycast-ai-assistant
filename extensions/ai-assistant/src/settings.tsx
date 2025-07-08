@@ -15,6 +15,7 @@ export const LLM_MODEL_KEY = "llm-model";
 export const FIX_TEXT_KEY = "fix-text";
 export const SHOW_EXPLORE_MORE_KEY = "show-explore-more";
 export const SILENCE_TIMEOUT_KEY = "silence-timeout";
+export const SILENCE_THRESHOLD_KEY = "silence-threshold";
 export const USE_PERSONAL_DICTIONARY_KEY = "use-personal-dictionary";
 export const MUTE_DURING_DICTATION_KEY = "mute-during-dictation";
 export const USE_CACHE_KEY = "use-cache";
@@ -76,6 +77,7 @@ export default function Command() {
   const [fixText, setFixText] = useState<boolean>(true);
   const [showExploreMore, setShowExploreMore] = useState<boolean>(true);
   const [silenceTimeout, setSilenceTimeout] = useState<string>("2.0");
+  const [silenceThreshold, setSilenceThreshold] = useState<string>("2");
   const [usePersonalDictionary, setUsePersonalDictionary] = useState<boolean>(false);
   const [useCache, setUseCache] = useState<boolean>(true);
   const [muteDuringDictation, setMuteDuringDictation] = useState<boolean>(true);
@@ -95,6 +97,7 @@ export default function Command() {
       const savedFixText = await LocalStorage.getItem<string>(FIX_TEXT_KEY);
       const savedShowExploreMore = await LocalStorage.getItem<string>(SHOW_EXPLORE_MORE_KEY);
       const savedSilenceTimeout = await LocalStorage.getItem<string>(SILENCE_TIMEOUT_KEY);
+      const savedSilenceThreshold = await LocalStorage.getItem<string>(SILENCE_THRESHOLD_KEY);
       const savedUsePersonalDictionary = await LocalStorage.getItem<string>(USE_PERSONAL_DICTIONARY_KEY);
       const savedUseCache = await LocalStorage.getItem<string>(USE_CACHE_KEY);
       const savedMuteDuringDictation = await LocalStorage.getItem<string>(MUTE_DURING_DICTATION_KEY);
@@ -125,6 +128,7 @@ export default function Command() {
       if (savedFixText) setFixText(savedFixText === "true");
       if (savedShowExploreMore) setShowExploreMore(savedShowExploreMore === "true");
       if (savedSilenceTimeout) setSilenceTimeout(savedSilenceTimeout);
+      if (savedSilenceThreshold) setSilenceThreshold(savedSilenceThreshold);
       if (savedUsePersonalDictionary) setUsePersonalDictionary(savedUsePersonalDictionary === "true");
       if (savedUseCache !== null) setUseCache(savedUseCache === "true");
       if (savedMuteDuringDictation !== null) setMuteDuringDictation(savedMuteDuringDictation === "true");
@@ -148,6 +152,7 @@ export default function Command() {
       LocalStorage.setItem(FIX_TEXT_KEY, fixText.toString()),
       LocalStorage.setItem(SHOW_EXPLORE_MORE_KEY, showExploreMore.toString()),
       LocalStorage.setItem(SILENCE_TIMEOUT_KEY, silenceTimeout),
+      LocalStorage.setItem(SILENCE_THRESHOLD_KEY, silenceThreshold),
       LocalStorage.setItem(USE_PERSONAL_DICTIONARY_KEY, usePersonalDictionary.toString()),
       LocalStorage.setItem(USE_CACHE_KEY, useCache.toString()),
       LocalStorage.setItem(MUTE_DURING_DICTATION_KEY, muteDuringDictation.toString()),
@@ -344,6 +349,26 @@ export default function Command() {
         value={silenceTimeout}
         onChange={setSilenceTimeout}
       />
+
+      <Form.Dropdown
+        id="silenceThreshold"
+        title="Silence Sensitivity"
+        info="How sensitive the silence detection is (0=very sensitive/1%, 10=less sensitive/6%)"
+        value={silenceThreshold}
+        onChange={setSilenceThreshold}
+      >
+        <Form.Dropdown.Item value="0" title="0 - Very Sensitive (1%)" />
+        <Form.Dropdown.Item value="1" title="1 - High (1.5%)" />
+        <Form.Dropdown.Item value="2" title="2 - Balanced (2%)" />
+        <Form.Dropdown.Item value="3" title="3 - Moderate (2.5%)" />
+        <Form.Dropdown.Item value="4" title="4 - Standard (3%)" />
+        <Form.Dropdown.Item value="5" title="5 - Medium (3.5%)" />
+        <Form.Dropdown.Item value="6" title="6 - Tolerant (4%)" />
+        <Form.Dropdown.Item value="7" title="7 - High Tolerance (4.5%)" />
+        <Form.Dropdown.Item value="8" title="8 - Low Sensitivity (5%)" />
+        <Form.Dropdown.Item value="9" title="9 - Very Low (5.5%)" />
+        <Form.Dropdown.Item value="10" title="10 - Least Sensitive (6%)" />
+      </Form.Dropdown>
 
       <Form.Checkbox
         id="muteDuringDictation"

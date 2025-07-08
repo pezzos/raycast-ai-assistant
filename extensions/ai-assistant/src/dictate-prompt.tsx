@@ -217,7 +217,7 @@ export default async function Command() {
     }
 
     // Get optimized audio parameters and start recording with profiling
-    const audioParams = getOptimizedAudioParams();
+    const audioParams = await getOptimizedAudioParams();
     await showHUD(`🎙️ Recording... (will stop after ${audioParams.timeout}s of silence)`);
     console.log("Starting recording...");
 

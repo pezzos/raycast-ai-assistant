@@ -1,19 +1,38 @@
 import { exec } from "child_process";
 import { promisify } from "util";
+import { LocalStorage } from "@raycast/api";
+import { SILENCE_TIMEOUT_KEY, SILENCE_THRESHOLD_KEY } from "../settings";
 
 const execAsync = promisify(exec);
 
 /**
- * Get optimized silence detection parameters and audio format
+ * Convert user-friendly threshold value (0-10) to percentage
+ * 0 = 1%, 1 = 1.5%, 2 = 2%, ..., 10 = 6%
  */
-export function getOptimizedAudioParams(): {
+function thresholdValueToPercentage(value: number): string {
+  const percentage = 1 + value * 0.5; // 0->1%, 1->1.5%, 2->2%, ..., 10->6%
+  return `${percentage}%`;
+}
+
+/**
+ * Get optimized silence detection parameters and audio format from user settings
+ */
+export async function getOptimizedAudioParams(): Promise<{
   timeout: number;
   threshold: string;
   soxArgs: string;
-} {
+}> {
+  // Get user settings or use defaults
+  const savedSilenceTimeout = await LocalStorage.getItem<string>(SILENCE_TIMEOUT_KEY);
+  const savedSilenceThreshold = await LocalStorage.getItem<string>(SILENCE_THRESHOLD_KEY);
+
+  const timeout = savedSilenceTimeout ? parseFloat(savedSilenceTimeout) : 2.0;
+  const thresholdValue = savedSilenceThreshold ? parseInt(savedSilenceThreshold) : 2; // Default to 2 (2%)
+  const threshold = thresholdValueToPercentage(thresholdValue);
+
   return {
-    timeout: 1.5, // Reduced from 2.0s to 1.5s
-    threshold: "3%", // Increased from 2% to 3% to avoid noise triggering
+    timeout,
+    threshold,
     soxArgs: "-r 16000 -c 1 -b 16", // Direct recording: 16kHz mono 16-bit
   };
 }
