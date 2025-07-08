@@ -38,7 +38,55 @@ export async function getOptimizedAudioParams(): Promise<{
 }
 
 /**
- * Test audio input device availability and quality
+ * Test audio setup without recording (fast, non-intrusive)
+ */
+export async function testAudioSetup(): Promise<{ 
+  soxAvailable: boolean; 
+  inputDeviceAvailable: boolean; 
+  error?: string 
+}> {
+  try {
+    // Check if SOX is available
+    const soxCheck = await execAsync('which /opt/homebrew/bin/sox', { shell: "/bin/zsh" });
+    const soxAvailable = soxCheck.stdout.trim().length > 0;
+
+    if (!soxAvailable) {
+      return { 
+        soxAvailable: false, 
+        inputDeviceAvailable: false, 
+        error: "SOX not found - please install: brew install sox" 
+      };
+    }
+
+    // Check input device via system profiler (no recording)
+    const deviceCheck = await execAsync(
+      '/usr/sbin/system_profiler SPAudioDataType | grep -A 2 "Default Input Device: Yes" | grep "Input Channels"',
+      { shell: "/bin/zsh" }
+    );
+    
+    const inputDeviceAvailable = deviceCheck.stdout.trim().length > 0;
+
+    if (!inputDeviceAvailable) {
+      return { 
+        soxAvailable: true, 
+        inputDeviceAvailable: false, 
+        error: "No input audio device detected" 
+      };
+    }
+
+    return { soxAvailable: true, inputDeviceAvailable: true };
+  } catch (error) {
+    console.warn("Audio setup test failed:", error);
+    return { 
+      soxAvailable: false, 
+      inputDeviceAvailable: false, 
+      error: `Audio setup check failed: ${error}` 
+    };
+  }
+}
+
+/**
+ * Test audio input device availability and quality (with recording - use sparingly)
  */
 export async function testAudioDevice(): Promise<{ available: boolean; quality: "good" | "fair" | "poor" }> {
   try {
@@ -64,22 +112,92 @@ export async function testAudioDevice(): Promise<{ available: boolean; quality: 
   }
 }
 
+// Global state to track original volume level
+let originalVolumeLevel: number | null = null;
+
 /**
- * Mute or unmute system audio output
+ * Get current system audio volume level
+ * @returns Promise<number> Current volume level (0-100)
+ */
+export async function getSystemVolumeLevel(): Promise<number> {
+  try {
+    const command = `osascript -e 'output volume of (get volume settings)'`;
+    const { stdout } = await execAsync(command);
+    return parseInt(stdout.trim());
+  } catch (error) {
+    console.error("Error getting system audio volume level:", error);
+    return 50; // Default fallback
+  }
+}
+
+/**
+ * Set system audio volume level
+ * @param level Volume level (0-100)
+ * @returns Promise<void>
+ */
+export async function setSystemVolumeLevel(level: number): Promise<void> {
+  try {
+    const clampedLevel = Math.max(0, Math.min(100, level));
+    const command = `osascript -e 'set volume output volume ${clampedLevel}'`;
+    await execAsync(command);
+  } catch (error) {
+    console.error("Error setting system audio volume level:", error);
+  }
+}
+
+/**
+ * Fade in volume progressively from 0 to target level
+ * @param targetLevel Target volume level (0-100)
+ * @param duration Duration in milliseconds (default: 500ms)
+ * @returns Promise<void>
+ */
+export async function fadeInVolume(targetLevel: number, duration: number = 500): Promise<void> {
+  const steps = 10; // Number of fade steps
+  const stepDuration = duration / steps;
+  const stepIncrement = targetLevel / steps;
+
+  for (let i = 1; i <= steps; i++) {
+    const currentLevel = Math.round(stepIncrement * i);
+    await setSystemVolumeLevel(currentLevel);
+
+    // Wait between steps except for the last one
+    if (i < steps) {
+      await new Promise((resolve) => setTimeout(resolve, stepDuration));
+    }
+  }
+}
+
+/**
+ * Mute or unmute system audio output using mute-only approach
  * @param mute Whether to mute (true) or unmute (false) the audio
  * @returns Promise<void>
  */
 export async function setSystemAudioMute(mute: boolean): Promise<void> {
   try {
-    const command = `osascript -e 'set volume ${mute ? "with" : "without"} output muted'`;
-    await execAsync(command);
+    if (mute) {
+      // Capture current volume level before muting
+      originalVolumeLevel = await getSystemVolumeLevel();
+      
+      // Set system mute only - don't touch volume
+      await execAsync(`osascript -e 'set volume with output muted'`);
+    } else {
+      // Restore original volume with fade-in (system stays muted during fade)
+      if (originalVolumeLevel !== null) {
+        // Wait 1.5 seconds for audio capture device to release processes
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+        
+        // Fade in to original volume over 0.5s (this will automatically unmute when volume > 0)
+        await fadeInVolume(originalVolumeLevel, 500);
+        originalVolumeLevel = null; // Reset after restoration
+      }
+    }
   } catch (error) {
     console.error("Error setting system audio mute:", error);
   }
 }
 
 /**
- * Get current system audio mute state
+ * Get current system audio mute state (checks system mute only)
  * @returns Promise<boolean> True if system audio is muted, false otherwise
  */
 export async function isSystemAudioMuted(): Promise<boolean> {

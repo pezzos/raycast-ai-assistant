@@ -15,7 +15,7 @@ import {
   PARAKEET_MODEL_KEY,
   LOCAL_ENGINE_KEY,
 } from "./settings";
-import { setSystemAudioMute, isSystemAudioMuted, getOptimizedAudioParams } from "./utils/audio";
+import { setSystemAudioMute, isSystemAudioMuted, getOptimizedAudioParams, testAudioSetup } from "./utils/audio";
 import { measureTimeAdvanced } from "./utils/timing";
 import { startPeriodicNotification, stopPeriodicNotification } from "./utils/timing";
 import { addTranscriptionToHistory, getRecordingsToKeep } from "./utils/transcription-history";
@@ -138,6 +138,13 @@ export default async function Command() {
   let muteDuringDictation = false;
 
   try {
+    // Phase 1: Early audio setup test (non-intrusive)
+    const audioSetup = await testAudioSetup();
+    if (!audioSetup.soxAvailable || !audioSetup.inputDeviceAvailable) {
+      await showHUD(`❌ Audio Error: ${audioSetup.error}`);
+      return;
+    }
+
     const preferences = getPreferenceValues<Preferences>();
 
     // Load settings from local storage
@@ -198,26 +205,23 @@ export default async function Command() {
       console.log("No text selected, will generate new text");
     }
 
-    // Prepare recordings directory
+    // Ensure recordings directory exists (lightweight check)
     if (!fs.existsSync(RECORDINGS_DIR)) {
       fs.mkdirSync(RECORDINGS_DIR, { recursive: true });
     }
 
-    // Clean up old recordings that are not in history
-    const recordingsToKeep = await getRecordingsToKeep();
-    await cleanupOldRecordings(RECORDINGS_DIR, recordingsToKeep);
-
     const outputPath = path.join(RECORDINGS_DIR, `recording-${Date.now()}.wav`);
     console.log("Recording will be saved to:", outputPath);
 
-    // Handle audio muting if enabled
+    // Get optimized audio parameters 
+    const audioParams = await getOptimizedAudioParams();
+
+    // Handle audio muting just before recording
     if (muteDuringDictation) {
       originalMuteState = await isSystemAudioMuted();
       await setSystemAudioMute(true);
     }
 
-    // Get optimized audio parameters and start recording with profiling
-    const audioParams = await getOptimizedAudioParams();
     await showHUD(`🎙️ Recording... (will stop after ${audioParams.timeout}s of silence)`);
     console.log("Starting recording...");
 
@@ -243,14 +247,14 @@ export default async function Command() {
 
     console.log("✅ Recording completed");
 
-    // Restore original audio state if needed
-    if (muteDuringDictation) {
-      await setSystemAudioMute(originalMuteState);
-    }
-
     // Process audio
     await showHUD("🔄 Converting speech to text...");
     startPeriodicNotification("🔄 Converting speech to text");
+
+    // Restore original audio state after starting conversion
+    if (muteDuringDictation) {
+      await setSystemAudioMute(originalMuteState);
+    }
 
     let transcription: Transcription;
 
@@ -344,6 +348,16 @@ export default async function Command() {
     }
 
     console.log("✨ Operation completed successfully");
+
+    // Background cleanup (non-blocking)
+    setImmediate(async () => {
+      try {
+        const recordingsToKeep = await getRecordingsToKeep();
+        await cleanupOldRecordings(RECORDINGS_DIR, recordingsToKeep);
+      } catch (error) {
+        console.error("Background cleanup failed:", error);
+      }
+    });
 
     // Termine la session de profiling
     await performanceProfiler.endSession();

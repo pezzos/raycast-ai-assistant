@@ -17,7 +17,7 @@ import {
 import { cleanOutputText, enhancedTextProcessing } from "./utils/common";
 import { isLocalTranscriptionAvailable, transcribeAudio, type ModelEngine } from "./utils/local-models";
 import { getPersonalDictionaryPrompt } from "./utils/dictionary";
-import { setSystemAudioMute, isSystemAudioMuted, getOptimizedAudioParams, testAudioDevice } from "./utils/audio";
+import { setSystemAudioMute, isSystemAudioMuted, getOptimizedAudioParams, testAudioSetup } from "./utils/audio";
 import { measureTime } from "./utils/timing";
 import { startPeriodicNotification, stopPeriodicNotification } from "./utils/timing";
 import { addTranscriptionToHistory, getRecordingsToKeep } from "./utils/transcription-history";
@@ -78,6 +78,13 @@ export default async function Command() {
   let muteDuringDictation = false;
 
   try {
+    // Phase 1: Early audio setup test (non-intrusive)
+    const audioSetup = await testAudioSetup();
+    if (!audioSetup.soxAvailable || !audioSetup.inputDeviceAvailable) {
+      await showHUD(`❌ Audio Error: ${audioSetup.error}`);
+      return;
+    }
+
     // Load settings and check parallel conditions
     const [preferences, audioMuteState] = await Promise.all([getPreferenceValues<Preferences>(), isSystemAudioMuted()]);
 
@@ -133,8 +140,8 @@ export default async function Command() {
       usePersonalDictionary,
     });
 
-    // Parallel setup operations including audio device test
-    const [, openai, audioDevice] = await Promise.all([
+    // Parallel setup operations
+    const [, openai] = await Promise.all([
       // Check if local model is available if needed
       whisperMode === "local"
         ? (async () => {
@@ -152,34 +159,22 @@ export default async function Command() {
 
       // Setup OpenAI client
       OpenAIClientManager.getClient(),
-
-      // Test audio device availability
-      testAudioDevice(),
     ]);
 
-    // Warn if audio quality is poor
-    if (!audioDevice.available) {
-      console.warn("Audio device not available");
-    } else if (audioDevice.quality === "poor") {
-      console.warn("Audio device quality is poor, transcription may be less accurate");
-    }
-
-    // Prepare directory and cleanup
+    // Ensure recordings directory exists (lightweight check)
     if (!fs.existsSync(RECORDINGS_DIR)) {
       fs.mkdirSync(RECORDINGS_DIR, { recursive: true });
     }
-    const recordingsToKeep = await getRecordingsToKeep();
-    await cleanupOldRecordings(RECORDINGS_DIR, recordingsToKeep);
 
     const outputPath = path.join(RECORDINGS_DIR, `recording-${Date.now()}.wav`);
 
-    // Handle audio muting if enabled (originalMuteState already set from parallel call)
+    // Get optimized audio parameters (format + silence detection)
+    const audioParams = await getOptimizedAudioParams();
+
+    // Handle audio muting just before recording
     if (muteDuringDictation) {
       await setSystemAudioMute(true);
     }
-
-    // Get optimized audio parameters (format + silence detection)
-    const audioParams = await getOptimizedAudioParams();
 
     // Start recording with optimized parameters and direct format
     await showHUD(`🎙️ Recording... (will stop after ${audioParams.timeout}s of silence)`);
@@ -192,14 +187,14 @@ export default async function Command() {
     await execAsync(command, { shell: "/bin/zsh" });
     console.log("✅ Recording completed");
 
-    // Restore original audio state if needed
-    if (muteDuringDictation) {
-      await setSystemAudioMute(originalMuteState);
-    }
-
     // Process audio
     await showHUD("🔄 Converting speech to text...");
     startPeriodicNotification("🔄 Converting speech to text");
+
+    // Restore original audio state after starting conversion
+    if (muteDuringDictation) {
+      await setSystemAudioMute(originalMuteState);
+    }
 
     let transcription: Transcription;
 
@@ -278,6 +273,16 @@ export default async function Command() {
     await Clipboard.paste(cleanedFinalText);
     await showHUD("✅ Transcription completed and pasted!");
     console.log("✨ Final result:", finalText);
+
+    // Background cleanup (non-blocking)
+    setImmediate(async () => {
+      try {
+        const recordingsToKeep = await getRecordingsToKeep();
+        await cleanupOldRecordings(RECORDINGS_DIR, recordingsToKeep);
+      } catch (error) {
+        console.error("Background cleanup failed:", error);
+      }
+    });
   } catch (error) {
     console.error("❌ Error during dictation:", error);
     await showHUD("❌ Error during dictation");
