@@ -13,7 +13,6 @@ export const PRIMARY_LANG_KEY = "primary-language";
 export const SECONDARY_LANG_KEY = "secondary-language";
 export const LLM_MODEL_KEY = "llm-model";
 export const FIX_TEXT_KEY = "fix-text";
-export const SHOW_EXPLORE_MORE_KEY = "show-explore-more";
 export const SILENCE_TIMEOUT_KEY = "silence-timeout";
 export const SILENCE_THRESHOLD_KEY = "silence-threshold";
 export const USE_PERSONAL_DICTIONARY_KEY = "use-personal-dictionary";
@@ -75,7 +74,6 @@ export default function Command() {
   const [parakeetModel, setParakeetModel] = useState<string>("parakeet-tdt-0.6b-v2");
   const [transcribeModel, setTranscribeModel] = useState<string>("gpt-4o-mini-transcribe");
   const [fixText, setFixText] = useState<boolean>(true);
-  const [showExploreMore, setShowExploreMore] = useState<boolean>(true);
   const [silenceTimeout, setSilenceTimeout] = useState<string>("2.0");
   const [silenceThreshold, setSilenceThreshold] = useState<string>("2");
   const [usePersonalDictionary, setUsePersonalDictionary] = useState<boolean>(false);
@@ -95,7 +93,6 @@ export default function Command() {
       const savedTranscribeModel = await LocalStorage.getItem<string>(TRANSCRIBE_MODEL_KEY);
       const savedLlmModel = await LocalStorage.getItem<string>(LLM_MODEL_KEY);
       const savedFixText = await LocalStorage.getItem<string>(FIX_TEXT_KEY);
-      const savedShowExploreMore = await LocalStorage.getItem<string>(SHOW_EXPLORE_MORE_KEY);
       const savedSilenceTimeout = await LocalStorage.getItem<string>(SILENCE_TIMEOUT_KEY);
       const savedSilenceThreshold = await LocalStorage.getItem<string>(SILENCE_THRESHOLD_KEY);
       const savedUsePersonalDictionary = await LocalStorage.getItem<string>(USE_PERSONAL_DICTIONARY_KEY);
@@ -126,7 +123,6 @@ export default function Command() {
       if (savedTranscribeModel) setTranscribeModel(savedTranscribeModel);
       if (savedLlmModel) setLlmModel(savedLlmModel);
       if (savedFixText) setFixText(savedFixText === "true");
-      if (savedShowExploreMore) setShowExploreMore(savedShowExploreMore === "true");
       if (savedSilenceTimeout) setSilenceTimeout(savedSilenceTimeout);
       if (savedSilenceThreshold) setSilenceThreshold(savedSilenceThreshold);
       if (savedUsePersonalDictionary) setUsePersonalDictionary(savedUsePersonalDictionary === "true");
@@ -150,7 +146,6 @@ export default function Command() {
       LocalStorage.setItem(TRANSCRIBE_MODEL_KEY, transcribeModel),
       LocalStorage.setItem(LLM_MODEL_KEY, llmModel),
       LocalStorage.setItem(FIX_TEXT_KEY, fixText.toString()),
-      LocalStorage.setItem(SHOW_EXPLORE_MORE_KEY, showExploreMore.toString()),
       LocalStorage.setItem(SILENCE_TIMEOUT_KEY, silenceTimeout),
       LocalStorage.setItem(SILENCE_THRESHOLD_KEY, silenceThreshold),
       LocalStorage.setItem(USE_PERSONAL_DICTIONARY_KEY, usePersonalDictionary.toString()),
@@ -391,17 +386,6 @@ export default function Command() {
         value={fixText}
         onChange={setFixText}
       />
-
-      <Form.Checkbox
-        id="showExploreMore"
-        label="Show 'Explore More' in Summaries"
-        title="Explore More"
-        info="Include additional resources and related topics in page summaries"
-        value={showExploreMore}
-        onChange={setShowExploreMore}
-      />
-
-      <Form.Separator />
 
       <Form.Description text="Personal Dictionary Settings" />
 
