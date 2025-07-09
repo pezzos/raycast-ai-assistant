@@ -20,7 +20,6 @@ import { smartTranscription } from "./utils/unified-transcription-v2";
 import { recordPerformanceSnapshot } from "./utils/performance-comparator";
 import { isLocalTranscriptionAvailable, transcribeAudio, type ModelEngine } from "./utils/local-models";
 import { getPersonalDictionaryPrompt } from "./utils/dictionary";
-import { LocalStorage } from "@raycast/api";
 
 // Helper function to get dictionary entries
 async function getPersonalDictionaryEntries() {
@@ -202,6 +201,27 @@ export default async function Command() {
     await execAsync(command, { shell: "/bin/zsh" });
     console.log("✅ Recording completed");
 
+    // Check for no audio detected conditions
+    try {
+      const audioFileStats = fs.statSync(outputPath);
+      const fileSizeBytes = audioFileStats.size;
+      
+      // Check if file is too small (likely empty audio)
+      if (fileSizeBytes < 3500) {
+        console.log(`⚠️ Audio file too small: ${fileSizeBytes} bytes`);
+        await showHUD("🔇 No audio detected");
+        
+        // Restore original audio state
+        if (muteDuringDictation) {
+          await setSystemAudioMute(originalMuteState);
+        }
+        
+        return;
+      }
+    } catch (error) {
+      console.error("Error checking audio file:", error);
+    }
+
     // Process audio
     await showHUD("🔄 Converting speech to text...");
     startPeriodicNotification("🔄 Converting speech to text");
@@ -212,7 +232,7 @@ export default async function Command() {
     }
 
     let transcription: Transcription;
-    let finalText: string;
+    let finalText: string = "";
 
     // Use unified transcription for online mode if experimental mode is enabled
     if (whisperMode === "transcribe" && experimentalMode) {
@@ -234,6 +254,13 @@ export default async function Command() {
 
       finalText = unifiedResult.text;
       transcription = { text: finalText };
+
+      // Check if output indicates no audio was detected
+      if (finalText.trim().startsWith('Personal Dictionary: "')) {
+        console.log("⚠️ No audio detected - output starts with Personal Dictionary");
+        await showHUD("🔇 No audio detected");
+        return;
+      }
 
       // Record performance snapshot for comparison
       await recordPerformanceSnapshot("optimized");
@@ -258,6 +285,13 @@ export default async function Command() {
         );
         return { text };
       });
+
+      // Check if output indicates no audio was detected
+      if (transcription.text.trim().startsWith('Personal Dictionary: "')) {
+        console.log("⚠️ No audio detected - output starts with Personal Dictionary");
+        await showHUD("🔇 No audio detected");
+        return;
+      }
     } else if (whisperMode === "transcribe") {
       // Legacy transcription workflow
       transcription = await measureTime("gpt-4o Transcribe", async () => {
@@ -269,6 +303,13 @@ export default async function Command() {
       });
 
       stopPeriodicNotification();
+
+      // Check if output indicates no audio was detected
+      if (transcription.text.trim().startsWith('Personal Dictionary: "')) {
+        console.log("⚠️ No audio detected - output starts with Personal Dictionary");
+        await showHUD("🔇 No audio detected");
+        return;
+      }
 
       // Enhanced processing: combine dictionary corrections, text improvement, and potential translation
       finalText = transcription.text;
@@ -317,7 +358,6 @@ export default async function Command() {
           : whisperMode === "transcribe"
             ? transcribeModel
             : undefined,
-      engine: whisperMode === "local" ? localEngine : undefined,
       textCorrectionEnabled: preferences.fixText,
       targetLanguage,
       activeApp: await getActiveApplication(),

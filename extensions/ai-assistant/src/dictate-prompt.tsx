@@ -247,6 +247,27 @@ export default async function Command() {
 
     console.log("✅ Recording completed");
 
+    // Check for no audio detected conditions
+    try {
+      const audioFileStats = fs.statSync(outputPath);
+      const fileSizeBytes = audioFileStats.size;
+      
+      // Check if file is too small (likely empty audio)
+      if (fileSizeBytes < 3500) {
+        console.log(`⚠️ Audio file too small: ${fileSizeBytes} bytes`);
+        await showHUD("🔇 No audio detected");
+        
+        // Restore original audio state
+        if (muteDuringDictation) {
+          await setSystemAudioMute(originalMuteState);
+        }
+        
+        return;
+      }
+    } catch (error) {
+      console.error("Error checking audio file:", error);
+    }
+
     // Process audio
     await showHUD("🔄 Converting speech to text...");
     startPeriodicNotification("🔄 Converting speech to text");
@@ -276,6 +297,13 @@ export default async function Command() {
           arch: process.arch,
         },
       );
+
+      // Check if output indicates no audio was detected
+      if (transcription.text.trim().startsWith('Personal Dictionary: "')) {
+        console.log("⚠️ No audio detected - output starts with Personal Dictionary");
+        await showHUD("🔇 No audio detected");
+        return;
+      }
     } else if (whisperMode === "transcribe") {
       transcription = await measureTimeAdvanced(
         "cloud-transcription",
@@ -292,6 +320,13 @@ export default async function Command() {
           provider: "openai",
         },
       );
+
+      // Check if output indicates no audio was detected
+      if (transcription.text.trim().startsWith('Personal Dictionary: "')) {
+        console.log("⚠️ No audio detected - output starts with Personal Dictionary");
+        await showHUD("🔇 No audio detected");
+        return;
+      }
     } else {
       throw new Error("Invalid whisper mode configuration. Please check your settings.");
     }
