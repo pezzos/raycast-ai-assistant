@@ -8,11 +8,12 @@ All of this, without waiting for Apple Intelligence to be ready and without need
 
 🔥 A shortcut, a command, and the AI does the rest. You'll never have to copy-paste into Google Translate or ChatGPT again!
 
-## Installation
+## Quick Start (30 seconds)
+1. Install from Raycast Store  
+2. Add OpenAI API key ([get one here](https://platform.openai.com/settings/organization/api-keys))
+3. Try "Dictate Text" → speak → magic! ✨
 
-1. Install the extension from the Raycast Store
-2. Configure your OpenAI API key in Raycast preferences (you can create one [here](https://platform.openai.com/settings/organization/api-keys))
-3. Select your primary and secondary languages
+That's it! Everything else is optional.
 
 ## Configuration
 
@@ -33,8 +34,6 @@ All of this, without waiting for Apple Intelligence to be ready and without need
 
 ## Features
 
-See the features in action in the [Demo Video](https://youtu.be/TfOwWesfGqw).
-
 🎙️ Voice Dictation
 Tired of typing? Need to capture an idea on the fly? Speak, and your assistant transforms your voice into accurate and fluid text.
 With ultra-high-performance voice recognition, you can dictate your notes, emails, or messages with ease. The AI automatically can automatically translate your text, and even improve it for better readability.
@@ -45,12 +44,11 @@ With ultra-high-performance voice recognition, you can dictate your notes, email
   - Optional translation to target language
   - Text improvement and cleanup (removing filler words, correcting grammar)
   - Automatic system audio muting during dictation
-  - Active application detection for better context
   - Transcription history with metadata
   - Personal dictionary integration
 - **Usage:**
-  1. Trigger the command "**Dictate Text**" through Raycast
-  2. Speak your text (recording stops after 2s of silence)
+  1. Trigger the command "**Dictate Text**" through Raycast or a keyboard shortcut
+  2. Speak your text (recording stops after a delai of silence)
   3. Wait for processing
   4. Transcribed (and optionally translated) text will be pasted
 
@@ -58,7 +56,7 @@ With ultra-high-performance voice recognition, you can dictate your notes, email
 Your workflow, your rules! Dictate your prompts to guide the AI according to your needs: brainstorming, writing emails, optimizing code… One shortcut, and your assistant will know exactly what to do. No need to write anymore, let your assistant do the work!
 - **Features:**
   - Dictate a prompt to generate or improve content. E.g.:
-    - Dictate "Generate a 100-word essay on the benefits of AI"
+    - Dictate "Generate a 100-word essay on the benefits of AI for productivity"
     - Respond to John's email with a friendly tone, explain him I can't make it to the meeting because I'm working on an AI assistant for Raycast
     - Improve this email to sound more professional but still friendly
     - ...
@@ -71,16 +69,14 @@ Your workflow, your rules! Dictate your prompts to guide the AI according to you
 
 ⚙️ Settings & Configuration
 - **Features:**
-  - Language preferences (primary/secondary)
-  - AI model selection
-  - Speech recognition mode (online/local)
-  - Whisper model management
-  - Personal dictionary management
+  - Language preferences (primary/secondary, used for automated translation)
+  - AI model selection (to improve the text)
+  - Speech recognition mode (online/local) with related models
   - Audio settings (muting during dictation)
   - Feature toggles
 - **Usage:**
   - Trigger the command "**Settings**" through Raycast for main settings
-  - Trigger the command "**Manage Whisper Models**" through Raycast for local Whisper model management
+  - Trigger the command "**Manage Local Models**" through Raycast for local Whisper model management
   - Trigger the command "**Add Word to Dictionary**" through Raycast to add custom word replacements
   - Trigger the command "**Manage Personal Dictionary**" through Raycast to manage your personal dictionary
 
@@ -91,11 +87,11 @@ Customize your dictation experience by adding your own words, names, and phrases
   - Support for technical terms and proper nouns
   - Automatic correction during dictation
   - Case-sensitive replacements
-  - Export/Import dictionary
 - **Usage:**
-  1. Trigger the command "**Add Word to Dictionary**" through Raycast
-  2. Enter the word to replace and its replacement
-  3. Your personal dictionary will be automatically applied during dictation
+  1. Select a mispelled word
+  2. Trigger the command "**Add Word to Dictionary**" through Raycast
+  3. Enter the word to replace and its replacement
+  4. Your personal dictionary will be automatically applied during dictation
 
 📜 Transcription History
 Keep track of all your dictations and manage your transcription history efficiently.
@@ -111,10 +107,9 @@ Keep track of all your dictations and manage your transcription history efficien
   3. Select an entry to view or use filters to find specific transcriptions
   5. Press Enter to add it to the clipboard and paste it to the active application or use the CMD+K shortcut to use it differently
 
-## Prerequisites
+## Requirements
 
 - macOS 12 or later
-- Node.js 16 or later
 - OpenAI API key
 
 ### System Dependencies (Auto-installed)
