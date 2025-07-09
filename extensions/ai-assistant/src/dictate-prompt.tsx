@@ -1,12 +1,10 @@
-import { showHUD, getPreferenceValues, Clipboard, LocalStorage } from "@raycast/api";
-import OpenAI from "openai";
+import { showHUD, Clipboard, LocalStorage } from "@raycast/api";
 import fs from "fs";
 import path from "path";
 import { exec } from "child_process";
 import { promisify } from "util";
 import { getLLMModel, getSelectedText, replaceSelectedText, cleanOutputText } from "./utils/common";
 import {
-  SILENCE_TIMEOUT_KEY,
   MUTE_DURING_DICTATION_KEY,
   USE_PERSONAL_DICTIONARY_KEY,
   WHISPER_MODE_KEY,
@@ -23,16 +21,12 @@ import { getActiveApplication } from "./utils/active-app";
 import { getPersonalDictionaryPrompt } from "./utils/dictionary";
 import { isLocalTranscriptionAvailable, transcribeAudio, type ModelEngine } from "./utils/local-models";
 import { performanceProfiler } from "./utils/performance-profiler";
+import OpenAIClientManager from "./utils/openai-client";
 
 const execAsync = promisify(exec);
 const SOX_PATH = "/opt/homebrew/bin/sox";
 const RECORDINGS_DIR = path.join(__dirname, "recordings");
 
-interface Preferences {
-  openaiApiKey: string;
-  primaryLang: string;
-  fixText: boolean;
-}
 
 interface Transcription {
   text: string;
@@ -78,7 +72,7 @@ async function cleanupOldRecordings(tempDir: string, recordingsToKeep: Set<strin
 async function executePrompt(
   prompt: string,
   selectedText: string | null,
-  openai: OpenAI,
+  openai: any,
   usePersonalDictionary: boolean,
 ): Promise<string> {
   console.log("Executing prompt with:", { prompt, hasSelectedText: !!selectedText });
@@ -145,7 +139,6 @@ export default async function Command() {
       return;
     }
 
-    const preferences = getPreferenceValues<Preferences>();
 
     // Load settings from local storage
 
@@ -170,9 +163,6 @@ export default async function Command() {
     const savedMuteDuringDictation = await LocalStorage.getItem<string>(MUTE_DURING_DICTATION_KEY);
     muteDuringDictation = savedMuteDuringDictation === "true";
 
-    const savedSilenceTimeout = await LocalStorage.getItem<string>(SILENCE_TIMEOUT_KEY);
-    const silenceTimeout = savedSilenceTimeout || "2.0";
-
     // Check if local model is available if needed
     if (whisperMode === "local") {
       const currentModelId = localEngine === "whisper" ? whisperModel : parakeetModel;
@@ -187,9 +177,7 @@ export default async function Command() {
     }
 
     // Initialize OpenAI
-    const openai = new OpenAI({
-      apiKey: preferences.openaiApiKey,
-    });
+    const openai = await OpenAIClientManager.getClient();
 
     // Get selected text if any
     let selectedText: string | null = null;
@@ -240,7 +228,7 @@ export default async function Command() {
         return stats.size;
       },
       {
-        silenceTimeout: parseFloat(silenceTimeout),
+        silenceTimeout: audioParams.timeout,
         mode: "recording",
       },
     );

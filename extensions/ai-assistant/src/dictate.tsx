@@ -120,9 +120,6 @@ export default async function Command() {
     const savedTranscribeModel = await LocalStorage.getItem<string>(TRANSCRIBE_MODEL_KEY);
     const transcribeModel = savedTranscribeModel || "gpt-4o-mini-transcribe";
 
-    // Silence timeout is now handled by optimized silence parameters
-    // const savedSilenceTimeout = await LocalStorage.getItem<string>(SILENCE_TIMEOUT_KEY);
-    // const silenceTimeout = savedSilenceTimeout || "2.0";
 
     const savedUsePersonalDictionary = await LocalStorage.getItem<string>(USE_PERSONAL_DICTIONARY_KEY);
     const usePersonalDictionary = savedUsePersonalDictionary === "true";
