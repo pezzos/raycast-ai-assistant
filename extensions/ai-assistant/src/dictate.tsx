@@ -91,7 +91,7 @@ export default async function Command() {
     // Phase 1: Early audio setup test (non-intrusive)
     const audioSetup = await testAudioSetup();
     if (!audioSetup.soxAvailable || !audioSetup.inputDeviceAvailable) {
-      await showHUD(`❌ Audio Error: ${audioSetup.error}`);
+      await showHUD(`❌ Audio setup error: ${audioSetup.error}`);
       return;
     }
 
@@ -191,7 +191,7 @@ export default async function Command() {
     }
 
     // Start recording with optimized parameters and direct format
-    await showHUD(`🎙️ Recording... (will stop after ${audioParams.timeout}s of silence)`);
+    await showHUD(`🎙️ Recording (stops after ${audioParams.timeout}s of silence)`);
 
     const command = `
       export PATH="/opt/homebrew/bin:$PATH";
@@ -223,7 +223,7 @@ export default async function Command() {
     }
 
     // Process audio
-    await showHUD("🔄 Converting speech to text...");
+    await showHUD("🔄 Converting to text...");
     startPeriodicNotification("🔄 Converting speech to text");
 
     // Restore original audio state after starting conversion
@@ -276,6 +276,9 @@ export default async function Command() {
       const engineDisplayName = localEngine === "whisper" ? "Whisper" : "Parakeet";
       const currentModelId = localEngine === "whisper" ? whisperModel : parakeetModel;
 
+      await showHUD("🔄 Transcribing locally...");
+      startPeriodicNotification("🔄 Transcribing locally");
+
       transcription = await measureTime(`Local ${engineDisplayName} transcription`, async () => {
         const text = await transcribeAudio(
           outputPath,
@@ -285,6 +288,8 @@ export default async function Command() {
         );
         return { text };
       });
+
+      stopPeriodicNotification();
 
       // Check if output indicates no audio was detected
       if (transcription.text.trim().startsWith('Personal Dictionary: "')) {
@@ -324,7 +329,7 @@ export default async function Command() {
         if (preferences.fixText) processingTasks.push("text improvement");
         if (targetLanguage !== "auto") processingTasks.push(`translation to ${targetLanguage}`);
 
-        await showHUD(`🔧 Processing: ${processingTasks.join(", ")}...`);
+        await showHUD("🔧 Processing text...");
         startPeriodicNotification("Processing text");
 
         finalText = await measureTime("Enhanced text processing", async () => {
@@ -367,7 +372,7 @@ export default async function Command() {
 
     const cleanedFinalText = cleanOutputText(finalText);
     await Clipboard.paste(cleanedFinalText);
-    await showHUD("✅ Transcription completed and pasted!");
+    await showHUD("✅ Text pasted");
     console.log("✨ Final result:", finalText);
 
     // Background cleanup (non-blocking)
@@ -381,7 +386,7 @@ export default async function Command() {
     });
   } catch (error) {
     console.error("❌ Error during dictation:", error);
-    await showHUD("❌ Error during dictation");
+    await showHUD("❌ Dictation failed");
     stopPeriodicNotification();
 
     // Restore original audio state in case of error

@@ -141,7 +141,7 @@ export default async function Command() {
     // Phase 1: Early audio setup test (non-intrusive)
     const audioSetup = await testAudioSetup();
     if (!audioSetup.soxAvailable || !audioSetup.inputDeviceAvailable) {
-      await showHUD(`❌ Audio Error: ${audioSetup.error}`);
+      await showHUD(`❌ Audio setup error: ${audioSetup.error}`);
       return;
     }
 
@@ -222,7 +222,7 @@ export default async function Command() {
       await setSystemAudioMute(true);
     }
 
-    await showHUD(`🎙️ Recording... (will stop after ${audioParams.timeout}s of silence)`);
+    await showHUD(`🎙️ Recording (stops after ${audioParams.timeout}s of silence)`);
     console.log("Starting recording...");
 
     const audioLength = await measureTimeAdvanced(
@@ -269,7 +269,7 @@ export default async function Command() {
     }
 
     // Process audio
-    await showHUD("🔄 Converting speech to text...");
+    await showHUD("🔄 Converting to text...");
     startPeriodicNotification("🔄 Converting speech to text");
 
     // Restore original audio state after starting conversion
@@ -281,6 +281,9 @@ export default async function Command() {
 
     if (whisperMode === "local") {
       const currentModelId = localEngine === "whisper" ? whisperModel : parakeetModel;
+
+      await showHUD("🔄 Transcribing locally...");
+      startPeriodicNotification("🔄 Transcribing locally");
 
       transcription = await measureTimeAdvanced(
         `local-${localEngine}-transcription`,
@@ -297,6 +300,8 @@ export default async function Command() {
           arch: process.arch,
         },
       );
+
+      stopPeriodicNotification();
 
       // Check if output indicates no audio was detected
       if (transcription.text.trim().startsWith('Personal Dictionary: "')) {
@@ -353,7 +358,7 @@ export default async function Command() {
     });
 
     // Execute the prompt
-    await showHUD("🤖 Processing your request...");
+    await showHUD("🤖 Processing request...");
     startPeriodicNotification("🤖 Processing your request");
 
     const generatedText = await measureTimeAdvanced(
@@ -375,11 +380,11 @@ export default async function Command() {
     // Replace selected text or paste at cursor position
     if (selectedText) {
       await replaceSelectedText(generatedText);
-      await showHUD("✅ Text replaced!");
+      await showHUD("✅ Text replaced");
     } else {
       const cleanedText = cleanOutputText(generatedText);
       await Clipboard.paste(cleanedText);
-      await showHUD("✅ Text generated and pasted!");
+      await showHUD("✅ Text pasted");
     }
 
     console.log("✨ Operation completed successfully");
@@ -398,7 +403,7 @@ export default async function Command() {
     await performanceProfiler.endSession();
   } catch (error) {
     console.error("❌ Error:", error);
-    await showHUD("❌ Error: " + (error instanceof Error ? error.message : "An error occurred"));
+    await showHUD("❌ Dictation failed");
     stopPeriodicNotification();
 
     // Restore original audio state in case of error
