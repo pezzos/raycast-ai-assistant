@@ -195,9 +195,6 @@ export default function Command() {
     }
   };
 
-  const getDependencyStatusIcon = (isInstalled: boolean) => {
-    return isInstalled ? { icon: Icon.CheckCircle, tintColor: Color.Green } : { icon: Icon.XMarkCircle, tintColor: Color.Red };
-  };
 
   const getDependencyStatusText = () => {
     if (isCheckingDependencies) return "Checking dependencies...";
@@ -229,27 +226,6 @@ export default function Command() {
       }
     >
       <Form.Description text="Configure your AI Assistant preferences" />
-
-      <Form.Separator />
-
-      <Form.Description text="System Dependencies" />
-      
-      <Form.Description text={getDependencyStatusText()} />
-      
-      {dependencyStatus && (
-        <>
-          {dependencyStatus.dependencies.map((dep) => (
-            <Form.Description 
-              key={dep.name}
-              text={`${dep.name}: ${dep.isInstalled ? "✅ Installed" : "❌ Not installed"} - ${dep.description}`}
-            />
-          ))}
-          
-          {!dependencyStatus.allInstalled && (
-            <Form.Description text="💡 Click 'Install Missing Dependencies' to automatically install all required dependencies via Homebrew." />
-          )}
-        </>
-      )}
 
       <Form.Separator />
 
@@ -503,6 +479,27 @@ export default function Command() {
         value={useCache}
         onChange={setUseCache}
       />
+
+      <Form.Separator />
+
+      <Form.Description text="System Dependencies" />
+      
+      <Form.Description text={getDependencyStatusText()} />
+      
+      {dependencyStatus && (
+        <>
+          {dependencyStatus.dependencies.map((dep) => (
+            <Form.Description 
+              key={dep.name}
+              text={`${dep.isInstalled ? "    ✅ " + dep.name : "    ❌ " + dep.name}: ${dep.description}`}
+            />
+          ))}
+          
+          {!dependencyStatus.allInstalled && (
+            <Form.Description text="💡 Click 'Install Missing Dependencies' to automatically install all required dependencies via Homebrew." />
+          )}
+        </>
+      )}
     </Form>
   );
 }
