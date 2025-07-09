@@ -1,6 +1,6 @@
 # TODO - Raycast AI Assistant
-
-- [ ] Use the text-validator feature to improve the dictate prompt feature
-- [ ] Set a timeout for the transcription to avoid being blocked by a long transcription
-- [ ] Add support for more AI models (Claude, Gemini, etc.)
+- [ ] Make the presentation video
+- [ ] Replace metadata screenshots
+- [ ] Improve the detection of text with dictate prompt feature
+- [ ] Add support for more AI models (Claude, Gemini, etc.) and OpenRouter
 - [ ] Add support for more languages
