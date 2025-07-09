@@ -14,6 +14,7 @@ export const PRIMARY_LANG_KEY = "primary-language";
 export const SECONDARY_LANG_KEY = "secondary-language";
 export const LLM_MODEL_KEY = "llm-model";
 export const FIX_TEXT_KEY = "fix-text";
+export const SILENCE_TIMEOUT_KEY = "silence-timeout";
 export const SILENCE_THRESHOLD_KEY = "silence-threshold";
 export const USE_PERSONAL_DICTIONARY_KEY = "use-personal-dictionary";
 export const MUTE_DURING_DICTATION_KEY = "mute-during-dictation";
@@ -74,6 +75,7 @@ export default function Command() {
   const [parakeetModel, setParakeetModel] = useState<string>("parakeet-tdt-0.6b-v2");
   const [transcribeModel, setTranscribeModel] = useState<string>("gpt-4o-mini-transcribe");
   const [fixText, setFixText] = useState<boolean>(true);
+  const [silenceTimeout, setSilenceTimeout] = useState<string>("2.0");
   const [silenceThreshold, setSilenceThreshold] = useState<string>("2");
   const [usePersonalDictionary, setUsePersonalDictionary] = useState<boolean>(false);
   const [muteDuringDictation, setMuteDuringDictation] = useState<boolean>(true);
@@ -95,6 +97,7 @@ export default function Command() {
       const savedTranscribeModel = await LocalStorage.getItem<string>(TRANSCRIBE_MODEL_KEY);
       const savedLlmModel = await LocalStorage.getItem<string>(LLM_MODEL_KEY);
       const savedFixText = await LocalStorage.getItem<string>(FIX_TEXT_KEY);
+      const savedSilenceTimeout = await LocalStorage.getItem<string>(SILENCE_TIMEOUT_KEY);
       const savedSilenceThreshold = await LocalStorage.getItem<string>(SILENCE_THRESHOLD_KEY);
       const savedUsePersonalDictionary = await LocalStorage.getItem<string>(USE_PERSONAL_DICTIONARY_KEY);
       const savedMuteDuringDictation = await LocalStorage.getItem<string>(MUTE_DURING_DICTATION_KEY);
@@ -124,6 +127,7 @@ export default function Command() {
       if (savedTranscribeModel) setTranscribeModel(savedTranscribeModel);
       if (savedLlmModel) setLlmModel(savedLlmModel);
       if (savedFixText) setFixText(savedFixText === "true");
+      if (savedSilenceTimeout) setSilenceTimeout(savedSilenceTimeout);
       if (savedSilenceThreshold) setSilenceThreshold(savedSilenceThreshold);
       if (savedUsePersonalDictionary) setUsePersonalDictionary(savedUsePersonalDictionary === "true");
       if (savedMuteDuringDictation !== null) setMuteDuringDictation(savedMuteDuringDictation === "true");
@@ -148,6 +152,7 @@ export default function Command() {
       LocalStorage.setItem(LLM_MODEL_KEY, llmModel),
       LocalStorage.setItem(FIX_TEXT_KEY, fixText.toString()),
       LocalStorage.setItem(EXPERIMENTAL_MODE_KEY, experimentalMode.toString()),
+      LocalStorage.setItem(SILENCE_TIMEOUT_KEY, silenceTimeout),
       LocalStorage.setItem(SILENCE_THRESHOLD_KEY, silenceThreshold),
       LocalStorage.setItem(USE_PERSONAL_DICTIONARY_KEY, usePersonalDictionary.toString()),
       LocalStorage.setItem(MUTE_DURING_DICTATION_KEY, muteDuringDictation.toString()),
@@ -394,6 +399,15 @@ export default function Command() {
       <Form.Separator />
 
       <Form.Description text="Recording Settings" />
+
+      <Form.TextField
+        id="silenceTimeout"
+        title="Silence Timeout"
+        placeholder="2.0"
+        info="Number of seconds of silence before stopping recording (e.g. 2.0)"
+        value={silenceTimeout}
+        onChange={setSilenceTimeout}
+      />
 
       <Form.Dropdown
         id="silenceThreshold"

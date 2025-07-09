@@ -5,6 +5,7 @@ import { exec } from "child_process";
 import { promisify } from "util";
 import { getLLMModel, getSelectedText, replaceSelectedText, cleanOutputText } from "./utils/common";
 import {
+  SILENCE_TIMEOUT_KEY,
   MUTE_DURING_DICTATION_KEY,
   USE_PERSONAL_DICTIONARY_KEY,
   WHISPER_MODE_KEY,

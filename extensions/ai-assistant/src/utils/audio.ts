@@ -1,7 +1,7 @@
 import { exec } from "child_process";
 import { promisify } from "util";
 import { LocalStorage } from "@raycast/api";
-import { SILENCE_THRESHOLD_KEY } from "../settings";
+import { SILENCE_TIMEOUT_KEY, SILENCE_THRESHOLD_KEY } from "../settings";
 
 const execAsync = promisify(exec);
 
@@ -23,9 +23,10 @@ export async function getOptimizedAudioParams(): Promise<{
   soxArgs: string;
 }> {
   // Get user settings or use defaults
+  const savedSilenceTimeout = await LocalStorage.getItem<string>(SILENCE_TIMEOUT_KEY);
   const savedSilenceThreshold = await LocalStorage.getItem<string>(SILENCE_THRESHOLD_KEY);
 
-  const timeout = 2.0; // Default timeout value
+  const timeout = savedSilenceTimeout ? parseFloat(savedSilenceTimeout) : 2.0;
   const thresholdValue = savedSilenceThreshold ? parseInt(savedSilenceThreshold) : 2; // Default to 2 (2%)
   const threshold = thresholdValueToPercentage(thresholdValue);
 

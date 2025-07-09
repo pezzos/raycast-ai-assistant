@@ -7,6 +7,7 @@ import {
   DICTATE_TARGET_LANG_KEY,
   WHISPER_MODE_KEY,
   TRANSCRIBE_MODEL_KEY,
+  SILENCE_TIMEOUT_KEY,
   USE_PERSONAL_DICTIONARY_KEY,
   MUTE_DURING_DICTATION_KEY,
   FIX_TEXT_KEY,
@@ -22,6 +23,7 @@ export interface AllSettings {
   dictateTargetLanguage: string;
   whisperMode: string;
   transcribeModel: string;
+  silenceTimeout: string;
   usePersonalDictionary: boolean;
   muteDuringDictation: boolean;
   fixText: boolean;
@@ -40,6 +42,7 @@ class SettingsManager {
     DICTATE_TARGET_LANG_KEY,
     WHISPER_MODE_KEY,
     TRANSCRIBE_MODEL_KEY,
+    SILENCE_TIMEOUT_KEY,
     USE_PERSONAL_DICTIONARY_KEY,
     MUTE_DURING_DICTATION_KEY,
     FIX_TEXT_KEY,
@@ -54,6 +57,7 @@ class SettingsManager {
     [DICTATE_TARGET_LANG_KEY]: "auto",
     [WHISPER_MODE_KEY]: "transcribe",
     [TRANSCRIBE_MODEL_KEY]: "gpt-4o-mini-transcribe",
+    [SILENCE_TIMEOUT_KEY]: "2.0",
     [USE_PERSONAL_DICTIONARY_KEY]: false,
     [MUTE_DURING_DICTATION_KEY]: true,
     [FIX_TEXT_KEY]: false,
@@ -114,6 +118,7 @@ class SettingsManager {
       dictateTargetLanguage: this.get(DICTATE_TARGET_LANG_KEY),
       whisperMode: this.get(WHISPER_MODE_KEY),
       transcribeModel: this.get(TRANSCRIBE_MODEL_KEY),
+      silenceTimeout: this.get(SILENCE_TIMEOUT_KEY),
       usePersonalDictionary: this.get(USE_PERSONAL_DICTIONARY_KEY),
       muteDuringDictation: this.get(MUTE_DURING_DICTATION_KEY),
       fixText: this.get(FIX_TEXT_KEY),
@@ -130,6 +135,7 @@ class SettingsManager {
       dictateTargetLanguage: this.DEFAULT_VALUES[DICTATE_TARGET_LANG_KEY],
       whisperMode: this.DEFAULT_VALUES[WHISPER_MODE_KEY],
       transcribeModel: this.DEFAULT_VALUES[TRANSCRIBE_MODEL_KEY],
+      silenceTimeout: this.DEFAULT_VALUES[SILENCE_TIMEOUT_KEY],
       usePersonalDictionary: this.DEFAULT_VALUES[USE_PERSONAL_DICTIONARY_KEY],
       muteDuringDictation: this.DEFAULT_VALUES[MUTE_DURING_DICTATION_KEY],
       fixText: this.DEFAULT_VALUES[FIX_TEXT_KEY],
