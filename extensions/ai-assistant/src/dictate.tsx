@@ -352,26 +352,51 @@ export default async function Command() {
       finalText = transcription.text;
     }
 
-    // Add to history
-    await addTranscriptionToHistory(finalText, targetLanguage, outputPath, {
-      mode: whisperMode === "local" ? "local" : whisperMode === "transcribe" ? "transcribe" : "online",
-      model:
-        whisperMode === "local"
-          ? `${localEngine}-${localEngine === "whisper" ? whisperModel : parakeetModel}`
-          : whisperMode === "transcribe"
-            ? transcribeModel
-            : undefined,
-      textCorrectionEnabled: preferences.fixText,
-      targetLanguage,
-      activeApp: await getActiveApplication(),
-    });
-
     // Translation is now handled in the enhanced processing above or unified transcription
 
     const cleanedFinalText = cleanOutputText(finalText);
     await Clipboard.paste(cleanedFinalText);
     await showHUD("✅ Text pasted");
     console.log("✨ Final result:", finalText);
+
+    // Add to history in background (non-blocking)
+    setImmediate(async () => {
+      try {
+        console.log("Adding transcription to history:", {
+          textLength: finalText.length,
+          language: targetLanguage,
+          recordingPath: outputPath,
+          details: {
+            mode: whisperMode === "local" ? "local" : whisperMode === "transcribe" ? "transcribe" : "online",
+            model:
+              whisperMode === "local"
+                ? `${localEngine}-${localEngine === "whisper" ? whisperModel : parakeetModel}`
+                : whisperMode === "transcribe"
+                  ? transcribeModel
+                  : undefined,
+            textCorrectionEnabled: preferences.fixText,
+            targetLanguage,
+            activeApp: await getActiveApplication(),
+          }
+        });
+        
+        await addTranscriptionToHistory(finalText, targetLanguage, outputPath, {
+          mode: whisperMode === "local" ? "local" : whisperMode === "transcribe" ? "transcribe" : "online",
+          model:
+            whisperMode === "local"
+              ? `${localEngine}-${localEngine === "whisper" ? whisperModel : parakeetModel}`
+              : whisperMode === "transcribe"
+                ? transcribeModel
+                : undefined,
+          textCorrectionEnabled: preferences.fixText,
+          targetLanguage,
+          activeApp: await getActiveApplication(),
+        });
+      } catch (error) {
+        console.error("Background history addition failed:", error);
+        // Don't show error to user as this is non-critical
+      }
+    });
 
     // Background cleanup (non-blocking)
     setImmediate(async () => {
