@@ -1,7 +1,8 @@
-import { Action, ActionPanel, Form, LocalStorage, popToRoot, showHUD } from "@raycast/api";
+import { Action, ActionPanel, Form, LocalStorage, popToRoot, showHUD, Icon, Color } from "@raycast/api";
 import { useEffect, useState } from "react";
 import { isWhisperModelDownloaded, isParakeetModelDownloaded, isAppleSiliconCompatible } from "./utils/local-models";
 import { LANGUAGE_OPTIONS } from "./constants";
+import { checkDependencies, installAllMissingDependencies, DependencyCheckResult } from "./utils/dependencies";
 
 export const DICTATE_TARGET_LANG_KEY = "dictate-target-language";
 export const WHISPER_MODE_KEY = "whisper-mode";
@@ -81,6 +82,9 @@ export default function Command() {
   const [useCache, setUseCache] = useState<boolean>(true);
   const [muteDuringDictation, setMuteDuringDictation] = useState<boolean>(true);
   const [experimentalMode, setExperimentalMode] = useState<boolean>(false);
+  const [dependencyStatus, setDependencyStatus] = useState<DependencyCheckResult | null>(null);
+  const [isCheckingDependencies, setIsCheckingDependencies] = useState<boolean>(false);
+  const [isInstallingDependencies, setIsInstallingDependencies] = useState<boolean>(false);
 
   useEffect(() => {
     // Load all saved preferences
@@ -135,6 +139,7 @@ export default function Command() {
     };
 
     loadSettings();
+    checkDependenciesStatus();
   }, []);
 
   const handleSubmit = async () => {
@@ -162,15 +167,89 @@ export default function Command() {
     await popToRoot();
   };
 
+  const checkDependenciesStatus = async () => {
+    if (isCheckingDependencies) return;
+    
+    setIsCheckingDependencies(true);
+    try {
+      const status = await checkDependencies();
+      setDependencyStatus(status);
+    } catch (error) {
+      console.error("Error checking dependencies:", error);
+    } finally {
+      setIsCheckingDependencies(false);
+    }
+  };
+
+  const handleInstallDependencies = async () => {
+    if (isInstallingDependencies) return;
+    
+    setIsInstallingDependencies(true);
+    try {
+      await installAllMissingDependencies();
+      await checkDependenciesStatus(); // Refresh status after installation
+    } catch (error) {
+      console.error("Error installing dependencies:", error);
+    } finally {
+      setIsInstallingDependencies(false);
+    }
+  };
+
+  const getDependencyStatusIcon = (isInstalled: boolean) => {
+    return isInstalled ? { icon: Icon.CheckCircle, tintColor: Color.Green } : { icon: Icon.XMarkCircle, tintColor: Color.Red };
+  };
+
+  const getDependencyStatusText = () => {
+    if (isCheckingDependencies) return "Checking dependencies...";
+    if (!dependencyStatus) return "Click 'Check Dependencies' to verify setup";
+    if (dependencyStatus.allInstalled) return "✅ All required dependencies are installed";
+    return `❌ Missing dependencies: ${dependencyStatus.missingRequired.join(", ")}`;
+  };
+
   return (
     <Form
       actions={
         <ActionPanel>
           <Action.SubmitForm title="Save Settings" onSubmit={handleSubmit} />
+          <Action
+            title="Check Dependencies"
+            icon={Icon.MagnifyingGlass}
+            onAction={checkDependenciesStatus}
+            shortcut={{ modifiers: ["cmd"], key: "d" }}
+          />
+          {dependencyStatus && !dependencyStatus.allInstalled && (
+            <Action
+              title={isInstallingDependencies ? "Installing..." : "Install Missing Dependencies"}
+              icon={Icon.Download}
+              onAction={handleInstallDependencies}
+              shortcut={{ modifiers: ["cmd"], key: "i" }}
+            />
+          )}
         </ActionPanel>
       }
     >
       <Form.Description text="Configure your AI Assistant preferences" />
+
+      <Form.Separator />
+
+      <Form.Description text="System Dependencies" />
+      
+      <Form.Description text={getDependencyStatusText()} />
+      
+      {dependencyStatus && (
+        <>
+          {dependencyStatus.dependencies.map((dep) => (
+            <Form.Description 
+              key={dep.name}
+              text={`${dep.name}: ${dep.isInstalled ? "✅ Installed" : "❌ Not installed"} - ${dep.description}`}
+            />
+          ))}
+          
+          {!dependencyStatus.allInstalled && (
+            <Form.Description text="💡 Click 'Install Missing Dependencies' to automatically install all required dependencies via Homebrew." />
+          )}
+        </>
+      )}
 
       <Form.Separator />
 

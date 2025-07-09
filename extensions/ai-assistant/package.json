@@ -82,6 +82,13 @@
       "description": "View detailed performance metrics for all AI Assistant operations including transcription times, LLM response times, and local vs cloud processing comparisons.\nHelps identify bottlenecks and optimize your workflow.",
       "mode": "view",
       "icon": "command-icon-settings.png"
+    },
+    {
+      "name": "install-dependencies",
+      "title": "Install Dependencies",
+      "description": "Automatically install and manage system dependencies required for AI Assistant.\nIncludes sox, ffmpeg, ffprobe, and uv for audio processing and local model support.",
+      "mode": "view",
+      "icon": "command-icon-settings.png"
     }
   ],
   "preferences": [
