@@ -11,7 +11,6 @@ import {
   USE_PERSONAL_DICTIONARY_KEY,
   MUTE_DURING_DICTATION_KEY,
   FIX_TEXT_KEY,
-  USE_CACHE_KEY,
   EXPERIMENTAL_MODE_KEY,
 } from "../settings";
 import { clearModelCache } from "./local-models";
@@ -28,7 +27,6 @@ export interface AllSettings {
   usePersonalDictionary: boolean;
   muteDuringDictation: boolean;
   fixText: boolean;
-  useCache: boolean;
   experimentalMode: boolean;
 }
 
@@ -48,7 +46,6 @@ class SettingsManager {
     USE_PERSONAL_DICTIONARY_KEY,
     MUTE_DURING_DICTATION_KEY,
     FIX_TEXT_KEY,
-    USE_CACHE_KEY,
     EXPERIMENTAL_MODE_KEY,
   ];
 
@@ -64,7 +61,6 @@ class SettingsManager {
     [USE_PERSONAL_DICTIONARY_KEY]: false,
     [MUTE_DURING_DICTATION_KEY]: true,
     [FIX_TEXT_KEY]: false,
-    [USE_CACHE_KEY]: true,
     [EXPERIMENTAL_MODE_KEY]: false,
   };
 
@@ -126,7 +122,6 @@ class SettingsManager {
       usePersonalDictionary: this.get(USE_PERSONAL_DICTIONARY_KEY),
       muteDuringDictation: this.get(MUTE_DURING_DICTATION_KEY),
       fixText: this.get(FIX_TEXT_KEY),
-      useCache: this.get(USE_CACHE_KEY),
       experimentalMode: this.get(EXPERIMENTAL_MODE_KEY),
     };
   }
@@ -144,7 +139,6 @@ class SettingsManager {
       usePersonalDictionary: this.DEFAULT_VALUES[USE_PERSONAL_DICTIONARY_KEY],
       muteDuringDictation: this.DEFAULT_VALUES[MUTE_DURING_DICTATION_KEY],
       fixText: this.DEFAULT_VALUES[FIX_TEXT_KEY],
-      useCache: this.DEFAULT_VALUES[USE_CACHE_KEY],
       experimentalMode: this.DEFAULT_VALUES[EXPERIMENTAL_MODE_KEY],
     };
   }
