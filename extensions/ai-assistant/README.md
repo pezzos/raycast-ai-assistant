@@ -20,7 +20,7 @@ That's it! Everything else is optional.
 ### Required Permissions
 - Accessibility permissions for text selection and replacement
 - Microphone access for voice recording
-- AppleScript permissions for browser integration 
+- AppleScript permissions for system integration (audio control, text validation, notifications) 
 
 ### Settings
 1. Open Raycast Settings
