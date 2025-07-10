@@ -28,7 +28,6 @@ const execAsync = promisify(exec);
 const SOX_PATH = "/opt/homebrew/bin/sox";
 const RECORDINGS_DIR = path.join(__dirname, "recordings");
 
-
 interface Transcription {
   text: string;
 }
@@ -140,7 +139,6 @@ export default async function Command() {
       return;
     }
 
-
     // Load settings from local storage
 
     const savedWhisperMode = await LocalStorage.getItem<string>(WHISPER_MODE_KEY);
@@ -240,17 +238,17 @@ export default async function Command() {
     try {
       const audioFileStats = fs.statSync(outputPath);
       const fileSizeBytes = audioFileStats.size;
-      
+
       // Check if file is too small (likely empty audio)
       if (fileSizeBytes < 3500) {
         console.log(`⚠️ Audio file too small: ${fileSizeBytes} bytes`);
         await showHUD("🔇 No audio detected");
-        
+
         // Restore original audio state
         if (muteDuringDictation) {
           await setSystemAudioMute(originalMuteState);
         }
-        
+
         return;
       }
     } catch (error) {

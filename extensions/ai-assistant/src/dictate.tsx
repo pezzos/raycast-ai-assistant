@@ -121,7 +121,6 @@ export default async function Command() {
     const savedTranscribeModel = await LocalStorage.getItem<string>(TRANSCRIBE_MODEL_KEY);
     const transcribeModel = savedTranscribeModel || "gpt-4o-mini-transcribe";
 
-
     const savedUsePersonalDictionary = await LocalStorage.getItem<string>(USE_PERSONAL_DICTIONARY_KEY);
     const usePersonalDictionary = savedUsePersonalDictionary === "true";
 
@@ -203,17 +202,17 @@ export default async function Command() {
     try {
       const audioFileStats = fs.statSync(outputPath);
       const fileSizeBytes = audioFileStats.size;
-      
+
       // Check if file is too small (likely empty audio)
       if (fileSizeBytes < 3500) {
         console.log(`⚠️ Audio file too small: ${fileSizeBytes} bytes`);
         await showHUD("🔇 No audio detected");
-        
+
         // Restore original audio state
         if (muteDuringDictation) {
           await setSystemAudioMute(originalMuteState);
         }
-        
+
         return;
       }
     } catch (error) {
@@ -377,9 +376,9 @@ export default async function Command() {
             textCorrectionEnabled: preferences.fixText,
             targetLanguage,
             activeApp: await getActiveApplication(),
-          }
+          },
         });
-        
+
         await addTranscriptionToHistory(finalText, targetLanguage, outputPath, {
           mode: whisperMode === "local" ? "local" : whisperMode === "transcribe" ? "transcribe" : "online",
           model:

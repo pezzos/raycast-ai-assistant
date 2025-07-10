@@ -164,7 +164,7 @@ export default function Command() {
 
   const checkDependenciesStatus = async () => {
     if (isCheckingDependencies) return;
-    
+
     setIsCheckingDependencies(true);
     try {
       const status = await checkDependencies();
@@ -178,7 +178,7 @@ export default function Command() {
 
   const handleInstallDependencies = async () => {
     if (isInstallingDependencies) return;
-    
+
     setIsInstallingDependencies(true);
     try {
       await installAllMissingDependencies();
@@ -189,7 +189,6 @@ export default function Command() {
       setIsInstallingDependencies(false);
     }
   };
-
 
   const getDependencyStatusText = () => {
     if (isCheckingDependencies) return "Checking dependencies...";
@@ -211,7 +210,7 @@ export default function Command() {
           />
           {dependencyStatus && !dependencyStatus.allInstalled && (
             <Action
-              title={isInstallingDependencies ? "Installing..." : "Install Missing Dependencies"}
+              title={isInstallingDependencies ? "Installing…" : "Install Missing Dependencies"}
               icon={Icon.Download}
               onAction={handleInstallDependencies}
               shortcut={{ modifiers: ["cmd"], key: "i" }}
@@ -465,18 +464,18 @@ export default function Command() {
       <Form.Separator />
 
       <Form.Description text="System Dependencies" />
-      
+
       <Form.Description text={getDependencyStatusText()} />
-      
+
       {dependencyStatus && (
         <>
           {dependencyStatus.dependencies.map((dep) => (
-            <Form.Description 
+            <Form.Description
               key={dep.name}
               text={`${dep.isInstalled ? "    ✅ " + dep.name : "    ❌ " + dep.name}: ${dep.description}`}
             />
           ))}
-          
+
           {!dependencyStatus.allInstalled && (
             <Form.Description text="💡 Click 'Install Missing Dependencies' to automatically install all required dependencies via Homebrew." />
           )}

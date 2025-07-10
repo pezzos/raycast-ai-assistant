@@ -21,7 +21,7 @@ export default function Command() {
       await showToast({
         style: Toast.Style.Failure,
         title: "Error",
-        message: "Failed to check dependencies status"
+        message: "Failed to check dependencies status",
       });
     } finally {
       setIsLoading(false);
@@ -36,14 +36,14 @@ export default function Command() {
       await showToast({
         style: Toast.Style.Success,
         title: "Success",
-        message: `${dependencyName} installed successfully!`
+        message: `${dependencyName} installed successfully!`,
       });
     } catch (error) {
       console.error(`Error installing ${dependencyName}:`, error);
       await showToast({
         style: Toast.Style.Failure,
         title: "Installation Failed",
-        message: `Failed to install ${dependencyName}. Please check the logs.`
+        message: `Failed to install ${dependencyName}. Please check the logs.`,
       });
     } finally {
       setIsInstalling(null);
@@ -51,7 +51,7 @@ export default function Command() {
   };
 
   const getStatusIcon = (isInstalled: boolean) => {
-    return isInstalled 
+    return isInstalled
       ? { icon: Icon.CheckCircle, tintColor: Color.Green }
       : { icon: Icon.XMarkCircle, tintColor: Color.Red };
   };
@@ -71,8 +71,8 @@ export default function Command() {
             accessories={[
               {
                 text: dep.version || getStatusText(dep.isInstalled),
-                ...getStatusIcon(dep.isInstalled)
-              }
+                ...getStatusIcon(dep.isInstalled),
+              },
             ]}
             actions={
               <ActionPanel>
@@ -84,7 +84,7 @@ export default function Command() {
                 />
                 {!dep.isInstalled && (
                   <Action
-                    title={isInstalling === dep.name ? "Installing..." : `Install ${dep.name}`}
+                    title={isInstalling === dep.name ? "Installing…" : `Install ${dep.name}`}
                     icon={Icon.Download}
                     onAction={() => handleInstallDependency(dep.name)}
                     shortcut={{ modifiers: ["cmd"], key: "i" }}
@@ -102,7 +102,7 @@ export default function Command() {
           />
         ))}
       </List.Section>
-      
+
       <List.Section title="Installation Info">
         <List.Item
           title="About Dependencies"

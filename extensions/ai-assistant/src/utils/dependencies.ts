@@ -45,14 +45,14 @@ async function installHomebrew(): Promise<void> {
   try {
     const installCommand = `/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"`;
     await execAsync(installCommand);
-    
+
     // Add Homebrew to PATH
     const homebrewPath = "/opt/homebrew/bin";
     process.env.PATH = `${homebrewPath}:${process.env.PATH}`;
-    
+
     toast.style = Toast.Style.Success;
     toast.message = "Homebrew installed successfully!";
-    
+
     setTimeout(() => toast.hide(), 2000);
   } catch (error) {
     toast.style = Toast.Style.Failure;
@@ -65,20 +65,17 @@ async function installHomebrew(): Promise<void> {
  * Check if a command is available in the system
  */
 async function checkCommand(command: string, paths?: string[]): Promise<{ installed: boolean; version?: string }> {
-  const searchPaths = paths || [
-    "/opt/homebrew/bin",
-    "/usr/local/bin",
-    "/usr/bin",
-    "/bin"
-  ];
+  const searchPaths = paths || ["/opt/homebrew/bin", "/usr/local/bin", "/usr/bin", "/bin"];
 
   // First try with 'which' command
   try {
     const { stdout } = await execAsync(`which ${command}`);
     if (stdout.trim()) {
       try {
-        const { stdout: versionOutput } = await execAsync(`${command} --version 2>/dev/null || ${command} -version 2>/dev/null || echo "unknown"`);
-        return { installed: true, version: versionOutput.trim().split('\n')[0] };
+        const { stdout: versionOutput } = await execAsync(
+          `${command} --version 2>/dev/null || ${command} -version 2>/dev/null || echo "unknown"`,
+        );
+        return { installed: true, version: versionOutput.trim().split("\n")[0] };
       } catch {
         return { installed: true, version: "unknown" };
       }
@@ -92,10 +89,12 @@ async function checkCommand(command: string, paths?: string[]): Promise<{ instal
     try {
       const fullPath = `${path}/${command}`;
       await execAsync(`test -f "${fullPath}" && test -x "${fullPath}"`);
-      
+
       try {
-        const { stdout } = await execAsync(`${fullPath} --version 2>/dev/null || ${fullPath} -version 2>/dev/null || echo "unknown"`);
-        return { installed: true, version: stdout.trim().split('\n')[0] };
+        const { stdout } = await execAsync(
+          `${fullPath} --version 2>/dev/null || ${fullPath} -version 2>/dev/null || echo "unknown"`,
+        );
+        return { installed: true, version: stdout.trim().split("\n")[0] };
       } catch {
         return { installed: true, version: "unknown" };
       }
@@ -134,7 +133,7 @@ async function installWithHomebrew(packageName: string, description: string): Pr
 
     toast.style = Toast.Style.Success;
     toast.message = `${description} installed successfully!`;
-    
+
     setTimeout(() => toast.hide(), 2000);
   } catch (error) {
     toast.style = Toast.Style.Failure;
@@ -156,14 +155,14 @@ async function installUv(): Promise<void> {
   try {
     // Install uv using the official installer
     await execAsync(`curl -LsSf https://astral.sh/uv/install.sh | sh`);
-    
+
     // Add uv to PATH
     const uvPath = `${os.homedir()}/.local/bin`;
     process.env.PATH = `${uvPath}:${process.env.PATH}`;
-    
+
     toast.style = Toast.Style.Success;
     toast.message = "uv installed successfully!";
-    
+
     setTimeout(() => toast.hide(), 2000);
   } catch (error) {
     toast.style = Toast.Style.Failure;
@@ -177,7 +176,7 @@ async function installUv(): Promise<void> {
  */
 export async function checkDependencies(): Promise<DependencyCheckResult> {
   const dependencies: DependencyStatus[] = [];
-  
+
   // Check Sox (required for audio recording)
   const soxCheck = await checkCommand("sox");
   dependencies.push({
@@ -186,7 +185,7 @@ export async function checkDependencies(): Promise<DependencyCheckResult> {
     version: soxCheck.version,
     installCommand: "brew install sox",
     description: "Audio recording and processing",
-    required: true
+    required: true,
   });
 
   // Check FFmpeg (required for audio processing)
@@ -197,7 +196,7 @@ export async function checkDependencies(): Promise<DependencyCheckResult> {
     version: ffmpegCheck.version,
     installCommand: "brew install ffmpeg",
     description: "Video and audio processing",
-    required: true
+    required: true,
   });
 
   // Check FFprobe (required for audio analysis)
@@ -208,7 +207,7 @@ export async function checkDependencies(): Promise<DependencyCheckResult> {
     version: ffprobeCheck.version,
     installCommand: "brew install ffmpeg", // ffprobe comes with ffmpeg
     description: "Audio and video analysis",
-    required: true
+    required: true,
   });
 
   // Check uv (required for Parakeet models on Apple Silicon)
@@ -219,16 +218,16 @@ export async function checkDependencies(): Promise<DependencyCheckResult> {
     version: uvCheck.version,
     installCommand: "curl -LsSf https://astral.sh/uv/install.sh | sh",
     description: "Python package manager (for Parakeet models)",
-    required: false // Optional for Apple Silicon users
+    required: false, // Optional for Apple Silicon users
   });
 
-  const allInstalled = dependencies.filter(d => d.required).every(d => d.isInstalled);
-  const missingRequired = dependencies.filter(d => d.required && !d.isInstalled).map(d => d.name);
+  const allInstalled = dependencies.filter((d) => d.required).every((d) => d.isInstalled);
+  const missingRequired = dependencies.filter((d) => d.required && !d.isInstalled).map((d) => d.name);
 
   return {
     allInstalled,
     dependencies,
-    missingRequired
+    missingRequired,
   };
 }
 
@@ -266,7 +265,7 @@ export async function installAllMissingDependencies(): Promise<void> {
 
   try {
     const status = await checkDependencies();
-    
+
     if (status.allInstalled) {
       toast.style = Toast.Style.Success;
       toast.message = "All dependencies are already installed!";
@@ -276,7 +275,7 @@ export async function installAllMissingDependencies(): Promise<void> {
 
     // Install missing dependencies
     const uniqueDependencies = [...new Set(status.missingRequired)];
-    
+
     for (const dep of uniqueDependencies) {
       toast.message = `Installing ${dep}...`;
       await installDependency(dep);
@@ -285,7 +284,7 @@ export async function installAllMissingDependencies(): Promise<void> {
     // Verify installation
     toast.message = "Verifying installation...";
     const finalStatus = await checkDependencies();
-    
+
     if (finalStatus.allInstalled) {
       toast.style = Toast.Style.Success;
       toast.message = "All dependencies installed successfully!";
@@ -293,7 +292,7 @@ export async function installAllMissingDependencies(): Promise<void> {
       toast.style = Toast.Style.Failure;
       toast.message = "Some dependencies failed to install";
     }
-    
+
     setTimeout(() => toast.hide(), 2000);
   } catch (error) {
     toast.style = Toast.Style.Failure;
@@ -307,9 +306,13 @@ export async function installAllMissingDependencies(): Promise<void> {
  */
 export async function showDependencyNotification(status: DependencyCheckResult): Promise<void> {
   if (status.allInstalled) {
-    await execAsync(`osascript -e 'display notification "All required dependencies are installed and ready!" with title "AI Assistant Dependencies"'`);
+    await execAsync(
+      `osascript -e 'display notification "All required dependencies are installed and ready!" with title "AI Assistant Dependencies"'`,
+    );
   } else {
     const missing = status.missingRequired.join(", ");
-    await execAsync(`osascript -e 'display notification "Missing dependencies: ${missing}. Click to install automatically." with title "AI Assistant Dependencies"'`);
+    await execAsync(
+      `osascript -e 'display notification "Missing dependencies: ${missing}. Click to install automatically." with title "AI Assistant Dependencies"'`,
+    );
   }
 }
