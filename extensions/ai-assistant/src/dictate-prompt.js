@@ -12,6 +12,7 @@ const util_1 = require("util");
 const common_1 = require("./utils/common");
 const settings_1 = require("./settings");
 const audio_1 = require("./utils/audio");
+const startup_optimizer_1 = require("./utils/startup-optimizer");
 const timing_1 = require("./utils/timing");
 const timing_2 = require("./utils/timing");
 const transcription_history_1 = require("./utils/transcription-history");
@@ -19,7 +20,6 @@ const active_app_1 = require("./utils/active-app");
 const dictionary_1 = require("./utils/dictionary");
 const local_models_1 = require("./utils/local-models");
 const performance_profiler_1 = require("./utils/performance-profiler");
-const openai_client_1 = __importDefault(require("./utils/openai-client"));
 const execAsync = (0, util_1.promisify)(child_process_1.exec);
 const SOX_PATH = "/opt/homebrew/bin/sox";
 const RECORDINGS_DIR = path_1.default.join(__dirname, "recordings");
@@ -100,12 +100,7 @@ async function Command() {
     let originalMuteState = false;
     let muteDuringDictation = false;
     try {
-        // Phase 1: Early audio setup test (non-intrusive)
-        const audioSetup = await (0, audio_1.testAudioSetup)();
-        if (!audioSetup.soxAvailable || !audioSetup.inputDeviceAvailable) {
-            await (0, api_1.showHUD)(`❌ Audio setup error: ${audioSetup.error}`);
-            return;
-        }
+        // Phase 1: Audio setup will be handled by optimizedStartup() in parallel
         // Load settings from local storage
         const savedWhisperMode = await api_1.LocalStorage.getItem(settings_1.WHISPER_MODE_KEY);
         const whisperMode = savedWhisperMode || "transcribe";
@@ -121,17 +116,18 @@ async function Command() {
         const usePersonalDictionary = savedUsePersonalDictionary === "true";
         const savedMuteDuringDictation = await api_1.LocalStorage.getItem(settings_1.MUTE_DURING_DICTATION_KEY);
         muteDuringDictation = savedMuteDuringDictation === "true";
-        // Check if local model is available if needed
-        if (whisperMode === "local") {
-            const currentModelId = localEngine === "whisper" ? whisperModel : parakeetModel;
-            const isAvailable = await (0, local_models_1.isLocalTranscriptionAvailable)(localEngine, currentModelId);
-            if (!isAvailable) {
-                const engineName = localEngine === "whisper" ? "Whisper" : "Parakeet";
-                throw new Error(`${engineName} engine or model ${currentModelId} is not available - Please install from the Local Models menu`);
-            }
+        // Phase 2: Optimized parallel startup operations
+        const currentModelId = localEngine === "whisper" ? whisperModel : parakeetModel;
+        const startupResults = await (0, startup_optimizer_1.optimizedStartup)(whisperMode, localEngine, currentModelId);
+        // Validate critical components (this will throw if audio or required models fail)
+        (0, startup_optimizer_1.validateStartupResults)(startupResults, whisperMode);
+        // Extract successfully initialized components
+        const { openaiClient: openai } = (0, startup_optimizer_1.extractStartupComponents)(startupResults);
+        // Ensure OpenAI client is available (should be guaranteed by validation above)
+        if (!openai) {
+            await (0, api_1.showHUD)("❌ OpenAI client initialization failed");
+            return;
         }
-        // Initialize OpenAI
-        const openai = await openai_client_1.default.getClient();
         // Get selected text if any
         let selectedText = null;
         try {

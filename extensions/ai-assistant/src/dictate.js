@@ -55,11 +55,11 @@ async function getPersonalDictionaryEntries() {
     return savedEntries ? JSON.parse(savedEntries) : [];
 }
 const audio_1 = require("./utils/audio");
+const startup_optimizer_1 = require("./utils/startup-optimizer");
 const timing_1 = require("./utils/timing");
 const timing_2 = require("./utils/timing");
 const transcription_history_1 = require("./utils/transcription-history");
 const active_app_1 = require("./utils/active-app");
-const openai_client_1 = __importDefault(require("./utils/openai-client"));
 const performance_profiler_1 = require("./utils/performance-profiler");
 const execAsync = (0, util_1.promisify)(child_process_1.exec);
 const SOX_PATH = "/opt/homebrew/bin/sox";
@@ -96,12 +96,7 @@ async function Command() {
     let originalMuteState = false;
     let muteDuringDictation = false;
     try {
-        // Phase 1: Early audio setup test (non-intrusive)
-        const audioSetup = await (0, audio_1.testAudioSetup)();
-        if (!audioSetup.soxAvailable || !audioSetup.inputDeviceAvailable) {
-            await (0, api_1.showHUD)(`❌ Audio setup error: ${audioSetup.error}`);
-            return;
-        }
+        // Phase 1: Audio setup will be handled by optimizedStartup() in parallel
         // Load settings and check parallel conditions
         const [preferences, audioMuteState] = await Promise.all([(0, api_1.getPreferenceValues)(), (0, audio_1.isSystemAudioMuted)()]);
         // Apply settings
@@ -142,22 +137,18 @@ async function Command() {
             usePersonalDictionary,
             experimentalMode,
         });
-        // Parallel setup operations
-        const [, openai] = await Promise.all([
-            // Check if local model is available if needed
-            whisperMode === "local"
-                ? (async () => {
-                    const currentModelId = localEngine === "whisper" ? whisperModel : parakeetModel;
-                    const isAvailable = await (0, local_models_1.isLocalTranscriptionAvailable)(localEngine, currentModelId);
-                    if (!isAvailable) {
-                        const engineName = localEngine === "whisper" ? "Whisper" : "Parakeet";
-                        throw new Error(`${engineName} engine or model ${currentModelId} is not available - Please install from the Local Models menu`);
-                    }
-                })()
-                : Promise.resolve(),
-            // Setup OpenAI client
-            openai_client_1.default.getClient(),
-        ]);
+        // Phase 2: Optimized parallel startup operations
+        const currentModelId = localEngine === "whisper" ? whisperModel : parakeetModel;
+        const startupResults = await (0, startup_optimizer_1.optimizedStartup)(whisperMode, localEngine, currentModelId);
+        // Validate critical components (this will throw if audio or required models fail)
+        (0, startup_optimizer_1.validateStartupResults)(startupResults, whisperMode);
+        // Extract successfully initialized components
+        const { openaiClient: openai } = (0, startup_optimizer_1.extractStartupComponents)(startupResults);
+        // Ensure OpenAI client is available (should be guaranteed by validation above)
+        if (!openai) {
+            await (0, api_1.showHUD)("❌ OpenAI client initialization failed");
+            return;
+        }
         // Ensure recordings directory exists (lightweight check)
         if (!fs_1.default.existsSync(RECORDINGS_DIR)) {
             fs_1.default.mkdirSync(RECORDINGS_DIR, { recursive: true });

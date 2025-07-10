@@ -5,7 +5,6 @@ import { exec } from "child_process";
 import { promisify } from "util";
 import { getLLMModel, getSelectedText, replaceSelectedText, cleanOutputText } from "./utils/common";
 import {
-  SILENCE_TIMEOUT_KEY,
   MUTE_DURING_DICTATION_KEY,
   USE_PERSONAL_DICTIONARY_KEY,
   WHISPER_MODE_KEY,
@@ -14,15 +13,15 @@ import {
   PARAKEET_MODEL_KEY,
   LOCAL_ENGINE_KEY,
 } from "./settings";
-import { setSystemAudioMute, isSystemAudioMuted, getOptimizedAudioParams, testAudioSetup } from "./utils/audio";
+import { setSystemAudioMute, isSystemAudioMuted, getOptimizedAudioParams } from "./utils/audio";
+import { optimizedStartup, validateStartupResults, extractStartupComponents } from "./utils/startup-optimizer";
 import { measureTimeAdvanced } from "./utils/timing";
 import { startPeriodicNotification, stopPeriodicNotification } from "./utils/timing";
 import { addTranscriptionToHistory, getRecordingsToKeep } from "./utils/transcription-history";
 import { getActiveApplication } from "./utils/active-app";
 import { getPersonalDictionaryPrompt } from "./utils/dictionary";
-import { isLocalTranscriptionAvailable, transcribeAudio, type ModelEngine } from "./utils/local-models";
+import { transcribeAudio, type ModelEngine } from "./utils/local-models";
 import { performanceProfiler } from "./utils/performance-profiler";
-import OpenAIClientManager from "./utils/openai-client";
 
 const execAsync = promisify(exec);
 const SOX_PATH = "/opt/homebrew/bin/sox";
@@ -72,7 +71,7 @@ async function cleanupOldRecordings(tempDir: string, recordingsToKeep: Set<strin
 async function executePrompt(
   prompt: string,
   selectedText: string | null,
-  openai: any,
+  openai: unknown,
   usePersonalDictionary: boolean,
 ): Promise<string> {
   console.log("Executing prompt with:", { prompt, hasSelectedText: !!selectedText });
@@ -132,12 +131,7 @@ export default async function Command() {
   let muteDuringDictation = false;
 
   try {
-    // Phase 1: Early audio setup test (non-intrusive)
-    const audioSetup = await testAudioSetup();
-    if (!audioSetup.soxAvailable || !audioSetup.inputDeviceAvailable) {
-      await showHUD(`❌ Audio setup error: ${audioSetup.error}`);
-      return;
-    }
+    // Phase 1: Audio setup will be handled by optimizedStartup() in parallel
 
     // Load settings from local storage
 
@@ -162,21 +156,21 @@ export default async function Command() {
     const savedMuteDuringDictation = await LocalStorage.getItem<string>(MUTE_DURING_DICTATION_KEY);
     muteDuringDictation = savedMuteDuringDictation === "true";
 
-    // Check if local model is available if needed
-    if (whisperMode === "local") {
-      const currentModelId = localEngine === "whisper" ? whisperModel : parakeetModel;
-      const isAvailable = await isLocalTranscriptionAvailable(localEngine, currentModelId);
+    // Phase 2: Optimized parallel startup operations
+    const currentModelId = localEngine === "whisper" ? whisperModel : parakeetModel;
+    const startupResults = await optimizedStartup(whisperMode, localEngine, currentModelId);
 
-      if (!isAvailable) {
-        const engineName = localEngine === "whisper" ? "Whisper" : "Parakeet";
-        throw new Error(
-          `${engineName} engine or model ${currentModelId} is not available - Please install from the Local Models menu`,
-        );
-      }
+    // Validate critical components (this will throw if audio or required models fail)
+    validateStartupResults(startupResults, whisperMode);
+
+    // Extract successfully initialized components
+    const { openaiClient: openai } = extractStartupComponents(startupResults);
+
+    // Ensure OpenAI client is available (should be guaranteed by validation above)
+    if (!openai) {
+      await showHUD("❌ OpenAI client initialization failed");
+      return;
     }
-
-    // Initialize OpenAI
-    const openai = await OpenAIClientManager.getClient();
 
     // Get selected text if any
     let selectedText: string | null = null;

@@ -10,7 +10,6 @@ import {
   PARAKEET_MODEL_KEY,
   LOCAL_ENGINE_KEY,
   TRANSCRIBE_MODEL_KEY,
-  SILENCE_TIMEOUT_KEY,
   USE_PERSONAL_DICTIONARY_KEY,
   MUTE_DURING_DICTATION_KEY,
   FIX_TEXT_KEY,
@@ -19,7 +18,7 @@ import {
 import { cleanOutputText, enhancedTextProcessing } from "./utils/common";
 import { smartTranscription } from "./utils/unified-transcription-v2";
 import { recordPerformanceSnapshot } from "./utils/performance-comparator";
-import { isLocalTranscriptionAvailable, transcribeAudio, type ModelEngine } from "./utils/local-models";
+import { transcribeAudio, type ModelEngine } from "./utils/local-models";
 import { getPersonalDictionaryPrompt } from "./utils/dictionary";
 
 // Helper function to get dictionary entries
@@ -28,12 +27,12 @@ async function getPersonalDictionaryEntries() {
   const savedEntries = await LocalStorage.getItem<string>(DICTIONARY_ENTRIES_KEY);
   return savedEntries ? JSON.parse(savedEntries) : [];
 }
-import { setSystemAudioMute, isSystemAudioMuted, getOptimizedAudioParams, testAudioSetup } from "./utils/audio";
+import { setSystemAudioMute, isSystemAudioMuted, getOptimizedAudioParams } from "./utils/audio";
+import { optimizedStartup, validateStartupResults, extractStartupComponents } from "./utils/startup-optimizer";
 import { measureTime } from "./utils/timing";
 import { startPeriodicNotification, stopPeriodicNotification } from "./utils/timing";
 import { addTranscriptionToHistory, getRecordingsToKeep } from "./utils/transcription-history";
 import { getActiveApplication } from "./utils/active-app";
-import OpenAIClientManager from "./utils/openai-client";
 import { performanceProfiler } from "./utils/performance-profiler";
 
 const execAsync = promisify(exec);
@@ -89,12 +88,7 @@ export default async function Command() {
   let muteDuringDictation = false;
 
   try {
-    // Phase 1: Early audio setup test (non-intrusive)
-    const audioSetup = await testAudioSetup();
-    if (!audioSetup.soxAvailable || !audioSetup.inputDeviceAvailable) {
-      await showHUD(`❌ Audio setup error: ${audioSetup.error}`);
-      return;
-    }
+    // Phase 1: Audio setup will be handled by optimizedStartup() in parallel
 
     // Load settings and check parallel conditions
     const [preferences, audioMuteState] = await Promise.all([getPreferenceValues<Preferences>(), isSystemAudioMuted()]);
@@ -151,26 +145,21 @@ export default async function Command() {
       experimentalMode,
     });
 
-    // Parallel setup operations
-    const [, openai] = await Promise.all([
-      // Check if local model is available if needed
-      whisperMode === "local"
-        ? (async () => {
-            const currentModelId = localEngine === "whisper" ? whisperModel : parakeetModel;
-            const isAvailable = await isLocalTranscriptionAvailable(localEngine, currentModelId);
+    // Phase 2: Optimized parallel startup operations
+    const currentModelId = localEngine === "whisper" ? whisperModel : parakeetModel;
+    const startupResults = await optimizedStartup(whisperMode, localEngine, currentModelId);
 
-            if (!isAvailable) {
-              const engineName = localEngine === "whisper" ? "Whisper" : "Parakeet";
-              throw new Error(
-                `${engineName} engine or model ${currentModelId} is not available - Please install from the Local Models menu`,
-              );
-            }
-          })()
-        : Promise.resolve(),
+    // Validate critical components (this will throw if audio or required models fail)
+    validateStartupResults(startupResults, whisperMode);
 
-      // Setup OpenAI client
-      OpenAIClientManager.getClient(),
-    ]);
+    // Extract successfully initialized components
+    const { openaiClient: openai } = extractStartupComponents(startupResults);
+
+    // Ensure OpenAI client is available (should be guaranteed by validation above)
+    if (!openai) {
+      await showHUD("❌ OpenAI client initialization failed");
+      return;
+    }
 
     // Ensure recordings directory exists (lightweight check)
     if (!fs.existsSync(RECORDINGS_DIR)) {
