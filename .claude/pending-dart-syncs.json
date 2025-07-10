@@ -1,0 +1,20 @@
+[
+  {
+    "file_path": "/Users/a.pezzotta/repos/raycast-ai-assistant/extensions/ai-assistant/PRD.md",
+    "title": "Ai Assistant/Prd",
+    "content_preview": "# Product Requirements Document\n\n## Problem Statement\nThe dictation feature in Raycast AI Assistant has significant startup latency that frustrates users. While the actual dictation works well, users ...",
+    "timestamp": "2025-07-10T01:27:27.004544"
+  },
+  {
+    "file_path": "/Users/a.pezzotta/repos/raycast-ai-assistant/extensions/ai-assistant/PLAN.md",
+    "title": "Ai Assistant/Plan",
+    "content_preview": "# Project Plan\n\n## Dictation Startup Performance Optimization\n\n**Goal**: Reduce dictation startup time from 1-2 seconds to <500ms (cold start) and <200ms (warm start)\n\n**Approach**: Implement parallel...",
+    "timestamp": "2025-07-10T01:47:17.185865"
+  },
+  {
+    "file_path": "/Users/a.pezzotta/repos/raycast-ai-assistant/extensions/ai-assistant/CHANGELOG.md",
+    "title": "Ai Assistant/Changelog",
+    "content_preview": "# Changelog\n\n## 2025-07-10\n- Created startup-optimizer.ts with parallel execution structure for dictation performance optimization",
+    "timestamp": "2025-07-10T01:52:59.763984"
+  }
+]
