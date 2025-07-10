@@ -4,7 +4,7 @@
 
 ### Phase 1: Foundation (2.5 hours)
 - [x] Create startup-optimizer.ts structure (1h)
-- [ ] Add session caching to audio.ts (1h)  
+- [x] Add session caching to audio.ts (1h)  
 - [ ] Test audio caching in isolation (30min)
 
 ### Phase 2: Core Implementation (3 hours)

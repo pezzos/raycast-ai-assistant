@@ -5,6 +5,13 @@ import { SILENCE_TIMEOUT_KEY, SILENCE_THRESHOLD_KEY } from "../settings";
 
 const execAsync = promisify(exec);
 
+// Session-level cache for expensive audio setup checks
+let audioSetupCache: {
+  soxAvailable: boolean;
+  inputDeviceAvailable: boolean;
+  error?: string;
+} | null = null;
+
 /**
  * Convert user-friendly threshold value (0-10) to percentage
  * 0 = 1%, 1 = 1.5%, 2 = 2%, ..., 10 = 6%
@@ -35,6 +42,33 @@ export async function getOptimizedAudioParams(): Promise<{
     threshold,
     soxArgs: "-r 16000 -c 1 -b 16", // Direct recording: 16kHz mono 16-bit
   };
+}
+
+/**
+ * Test audio setup with session caching for performance optimization
+ * Returns cached result if available, otherwise performs the check and caches it
+ */
+export async function testAudioSetupCached(): Promise<{
+  soxAvailable: boolean;
+  inputDeviceAvailable: boolean;
+  error?: string;
+}> {
+  // Return cached result if available
+  if (audioSetupCache) {
+    return audioSetupCache;
+  }
+
+  // Perform the check and cache the result
+  const result = await testAudioSetup();
+  audioSetupCache = result;
+  return result;
+}
+
+/**
+ * Clear the audio setup cache - call when hardware might have changed
+ */
+export function clearAudioSetupCache(): void {
+  audioSetupCache = null;
 }
 
 /**

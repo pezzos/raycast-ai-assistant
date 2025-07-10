@@ -36,10 +36,11 @@ That's it! Everything else is optional.
 
 🎙️ Voice Dictation
 Tired of typing? Need to capture an idea on the fly? Speak, and your assistant transforms your voice into accurate and fluid text.
-With ultra-high-performance voice recognition, you can dictate your notes, emails, or messages with ease. The AI automatically can automatically translate your text, and even improve it for better readability.
+With ultra-high-performance voice recognition and optimized startup times, you can dictate your notes, emails, or messages with ease. The AI automatically can automatically translate your text, and even improve it for better readability.
 - **Features:**
   - Speech-to-text conversion with high accuracy
   - Support for both online (OpenAI) and local Whisper models
+  - **Optimized startup performance** - significantly faster dictation initialization
   - Automatic language detection
   - Optional translation to target language
   - Text improvement and cleanup (removing filler words, correcting grammar)

@@ -1,4 +1,4 @@
-import { testAudioSetup } from "./audio";
+import { testAudioSetupCached } from "./audio";
 import { isLocalTranscriptionAvailable } from "./local-models";
 import OpenAIClientManager from "./openai-client";
 import OpenAI from "openai";
@@ -36,8 +36,8 @@ export async function optimizedStartup(
 ): Promise<OptimizedStartupResult> {
   // Run all checks in parallel using Promise.allSettled for independent error handling
   const [audioResult, modelResult, openaiResult] = await Promise.allSettled([
-    // Audio setup check
-    testAudioSetup(),
+    // Audio setup check (cached for performance)
+    testAudioSetupCached(),
 
     // Model availability check (only for local mode)
     whisperMode === "local" ? isLocalTranscriptionAvailable(localEngine, currentModelId) : Promise.resolve(true),
