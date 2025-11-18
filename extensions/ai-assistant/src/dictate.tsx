@@ -187,6 +187,14 @@ export default async function Command() {
     await execAsync(command, { shell: "/bin/zsh" });
     console.log("✅ Recording completed");
 
+    const command = `
+    export PATH="/opt/homebrew/bin:$PATH";
+    "${SOX_PATH}" -d ${audioParams.soxArgs} "${outputPath}" silence 1 0.1 0% 1 ${audioParams.timeout} ${audioParams.threshold}
+  `;
+
+  await execAsync(command, { shell: "/bin/zsh" });
+  console.log("✅ Recording completed");
+
     // Check for no audio detected conditions
     try {
       const audioFileStats = fs.statSync(outputPath);
